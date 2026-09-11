@@ -68,6 +68,7 @@ export async function ensureSessionTable(): Promise<void> {
 
 app.use(
   session({
+    name: "workspace.sid",  // add for same logiin session
     store: new PgSession({
       pool: sessionPool,
       tableName: "session",
@@ -80,7 +81,8 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 8 * 60 * 60 * 1000,
+      // maxAge: 8 * 60 * 60 * 1000,
+      maxAge: 1 * 60 * 60 * 1000,  // one hour
     },
   }),
 );
