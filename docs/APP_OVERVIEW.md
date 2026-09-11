@@ -14,11 +14,13 @@
 > | `artifacts/api-server/src/routes/users.ts` | §6 Users |
 > | `artifacts/api-server/src/routes/accessMapping.ts` | §7 Map User Security Access |
 > | `artifacts/api-server/src/routes/appsResources.ts` | §8.1 Apps, §8.2 Resources |
+> | `artifacts/api-server/src/routes/appsResources.test.ts` | §8.1 Apps — entitlement role regression coverage |
 > | `artifacts/api-server/src/routes/roles.ts` | §8.3 Roles |
 > | `artifacts/api-server/src/routes/grants.ts` | §8.4 Access Grants |
 > | `artifacts/api-server/src/routes/security.ts` | §9 Security Policies |
 > | `artifacts/api-server/src/routes/audit.ts` | §10 Audit Log |
 > | `artifacts/api-server/src/routes/sync.ts` | §11 Data Sync Error Log |
+> | `artifacts/api-server/src/routes/sync.test.ts` | §11 Data Sync Error Log — filtering regression coverage |
 > | `artifacts/api-server/src/routes/workOrderPurge.ts` | §12 Work Order Purge |
 > | `artifacts/api-server/src/routes/apiKeys.ts` | §13 API Key Authentication |
 > | `artifacts/api-server/src/routes/permissionMatrix.ts` | §14 Permission Matrix Export |
@@ -69,7 +71,7 @@ The Admin Console is a web-based management portal backed by a REST API. It gove
 | Database ORM | Drizzle ORM (PostgreSQL) |
 | Auth | Microsoft Entra ID (Azure AD) OIDC + PKCE via `openid-client` |
 | Session store | `express-session` backed by PostgreSQL (`connect-pg-simple`) |
-| External directory | Microsoft Graph API (user search, sign-in logs) |
+| External directory | Microsoft Graph API (user search) |
 
 ---
 
@@ -267,6 +269,8 @@ When an App is created, two **entitlement roles** are automatically created:
 
 When a new **Resource** is added to an app, the `grantEntitlementsForResource` function automatically adds the appropriate `access_grants` rows to both entitlement roles.
 
+When an **App is created**, optional Tab, Form, and Table resources can be supplied in the same request. The app, resources, security policy, entitlement roles, and entitlement grants are created in one transaction.
+
 When an **App is renamed**, entitlement role names are updated in a transaction along with any `api_keys.app_name` references.
 
 ### 4.3 How `/access-check` evaluates a request
@@ -281,11 +285,12 @@ Evaluation steps:
 5. If user `status != "active"` → `allowed: false, reason: "User is disabled"`.
 6. Fetch all `role_assignments` for the user → join to `roles`.
 7. If no roles → `allowed: false, reason: "User has no roles assigned"`.
-8. Fetch all `access_grants` for those roles, filtered to the named app → join to `resources` and `apps`.
-9. If no matching grants → `allowed: false, reason: "User has no permissions for app"`.
-10. De-duplicate by resource, keeping the highest-privilege level (`view` < `read & write` < `full rights`).
-11. Return `allowed: true` with the user's roles and effective per-resource permissions.
-12. Side-effect: stamp `api_keys.last_used_at` on every successful (authenticated) call.
+8. Check whether any assigned entitlement role belongs to the requested app.
+9. Fetch all `access_grants` for those roles, filtered to the named app → join to `resources` and `apps`.
+10. If there is no matching app entitlement and no matching grant → `allowed: false, reason: "User has no permissions for app"`.
+11. De-duplicate resource grants, keeping the highest-privilege level (`view` < `read & write` < `full rights`).
+12. Return `allowed: true` with the user's roles and effective per-resource permissions. An app entitlement remains valid when the app has no resource rows, so permissions may be empty.
+13. Side-effect: stamp `api_keys.last_used_at` on every successful (authenticated) call.
 
 ---
 

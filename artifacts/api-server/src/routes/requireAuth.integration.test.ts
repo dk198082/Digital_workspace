@@ -88,7 +88,6 @@ vi.mock("@workspace/permission-matrix", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("../lib/graph", () => ({
   searchDirectoryUsers: vi.fn().mockResolvedValue({ value: [] }),
-  getSignInLogs: vi.fn().mockResolvedValue({ value: [] }),
   GraphPermissionError: class GraphPermissionError extends Error {},
 }));
 
@@ -189,7 +188,6 @@ const PROTECTED_ROUTES: Array<{ group: string; method: "get" | "post"; path: str
   { group: "permissionMatrix", method: "get",  path: "/api/permission-matrix/export" },
   { group: "accessMapping",    method: "get",  path: "/api/access-mapping" },
   { group: "workOrderPurge",   method: "get",  path: "/api/work-order-purge/search" },
-  { group: "myApps",           method: "get",  path: "/api/my-apps" },
 ];
 
 // ---------------------------------------------------------------------------

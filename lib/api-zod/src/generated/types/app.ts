@@ -10,8 +10,4 @@ export interface App {
   id: number;
   name: string;
   resourceCount: number;
-  launchUrl?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  category?: string | null;
 }

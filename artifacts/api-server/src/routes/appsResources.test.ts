@@ -139,4 +139,65 @@ describe("app creation entitlement roles", () => {
     ]);
     expect(roleInserts.every((role) => role.appId === APP.id && role.isEntitlement)).toBe(true);
   });
+
+  it("creates supplied resources and grants both entitlement roles access", async () => {
+    const createdResources = [
+      { id: 201, appId: APP.id, name: "Dashboard", type: "Tab", description: "" },
+      { id: 202, appId: APP.id, name: "Orders", type: "Table", description: "" },
+    ];
+    mockDb._selectQueue.push(
+      [],
+      createdResources,
+      [], [], [],
+      [], [], [],
+    );
+    mockDb._insertQueue.push(
+      [APP],
+      [],
+      [],
+      [ENTITLEMENT_ROLES[0]],
+      [],
+      [ENTITLEMENT_ROLES[1]],
+      [],
+    );
+
+    const response = await request(app).post("/api/apps").send({
+      name: "Customer Portal",
+      resources: [
+        { name: " Dashboard ", type: "Tab" },
+        { name: "Orders", type: "Table" },
+      ],
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({ ...APP, resourceCount: 2 });
+    expect(mockDb._insertedValues).toContainEqual([
+      { appId: APP.id, name: "Dashboard", type: "Tab", description: "" },
+      { appId: APP.id, name: "Orders", type: "Table", description: "" },
+    ]);
+
+    const grantInserts = mockDb._insertedValues.filter(
+      (values): values is Array<{ roleId: number; resourceId: number; level: string }> =>
+        Array.isArray(values) &&
+        values.length === 2 &&
+        values.every(
+          (value) =>
+            typeof value === "object" &&
+            value !== null &&
+            "roleId" in value &&
+            "resourceId" in value &&
+            "level" in value,
+        ),
+    );
+    expect(grantInserts).toEqual([
+      [
+        { roleId: ENTITLEMENT_ROLES[0].id, resourceId: 201, level: "View" },
+        { roleId: ENTITLEMENT_ROLES[0].id, resourceId: 202, level: "View" },
+      ],
+      [
+        { roleId: ENTITLEMENT_ROLES[1].id, resourceId: 201, level: "Read & Write" },
+        { roleId: ENTITLEMENT_ROLES[1].id, resourceId: 202, level: "Read & Write" },
+      ],
+    ]);
+  });
 });

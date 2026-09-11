@@ -16,9 +16,6 @@ import {
   UpdateAppParams,
   UpdateAppBody,
   UpdateAppResponse,
-  UpdateAppLaunchParams,
-  UpdateAppLaunchBody,
-  UpdateAppLaunchResponse,
   DeleteAppParams,
   CreateResourceBody,
   CreateResourceResponse,
@@ -57,6 +54,24 @@ router.post("/apps", async (req, res): Promise<void> => {
     res.status(400).json({ error: "App name is required" });
     return;
   }
+  const resources = (parsed.data.resources ?? []).map((resource) => ({
+    name: resource.name.trim(),
+    type: resource.type,
+    description: resource.description?.trim() ?? "",
+  }));
+  if (resources.some((resource) => !resource.name)) {
+    res.status(400).json({ error: "Resource names are required" });
+    return;
+  }
+  const resourceNames = new Set<string>();
+  for (const resource of resources) {
+    const normalized = resource.name.toLowerCase();
+    if (resourceNames.has(normalized)) {
+      res.status(400).json({ error: `Duplicate resource name "${resource.name}"` });
+      return;
+    }
+    resourceNames.add(normalized);
+  }
   const [existing] = await db
     .select({ id: appsTable.id })
     .from(appsTable)
@@ -68,16 +83,21 @@ router.post("/apps", async (req, res): Promise<void> => {
   const created = await db.transaction(async (tx) => {
     const [app] = await tx.insert(appsTable).values({ name }).returning();
     await tx.insert(securityPoliciesTable).values({ appId: app.id });
+    if (resources.length > 0) {
+      await tx.insert(resourcesTable).values(
+        resources.map((resource) => ({ appId: app.id, ...resource })),
+      );
+    }
     await ensureEntitlementsForApp(app.id, app.name, tx);
     return app;
   });
   await logAudit(
     "create",
     "App",
-    `Onboarded app ${name} with default security policy and Read Only / Read / Write entitlement roles`,
+    `Onboarded app ${name} with ${resources.length} resources, default security policy, and Read Only / Read / Write entitlement roles`,
     req.session.user?.name,
   );
-  res.status(201).json(CreateAppResponse.parse({ ...created, resourceCount: 0 }));
+  res.status(201).json(CreateAppResponse.parse({ ...created, resourceCount: resources.length }));
 });
 
 router.patch("/apps/:id", async (req, res): Promise<void> => {
@@ -131,40 +151,6 @@ router.patch("/apps/:id", async (req, res): Promise<void> => {
     await logAudit("update", "App", `Renamed app ${app.name} to ${name}`, req.session.user?.name);
   }
   res.json(UpdateAppResponse.parse({ ...updated, resourceCount: count }));
-});
-
-router.patch("/apps/:id/launch", async (req, res): Promise<void> => {
-  const params = UpdateAppLaunchParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateAppLaunchBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [app] = await db.select().from(appsTable).where(eq(appsTable.id, params.data.id));
-  if (!app) {
-    res.status(404).json({ error: "App not found" });
-    return;
-  }
-  const [updated] = await db
-    .update(appsTable)
-    .set(parsed.data)
-    .where(eq(appsTable.id, app.id))
-    .returning();
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(resourcesTable)
-    .where(eq(resourcesTable.appId, app.id));
-  await logAudit(
-    "update",
-    "App",
-    `Updated Workspace Shell tile settings for ${app.name}`,
-    req.session.user?.name,
-  );
-  res.json(UpdateAppLaunchResponse.parse({ ...updated, resourceCount: count }));
 });
 
 router.delete("/apps/:id", async (req, res): Promise<void> => {
