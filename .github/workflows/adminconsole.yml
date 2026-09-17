@@ -40,13 +40,21 @@ jobs:
             -t $REGISTRY/$IMAGE_NAME:latest \
             .
 
-      - name: Inspect frontend files
+      # ---------------------------------------------------------------
+      # DIAGNOSTIC: Inspect the newly built image
+      # ---------------------------------------------------------------
+      - name: Inspect current image
         run: |
+          echo "========================================"
+          echo "CURRENT IMAGE"
+          echo "========================================"
+
           docker run --rm $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
             sh -c '
               echo "=== ENVIRONMENT ==="
               echo "NODE_ENV=$NODE_ENV"
               echo "PORT=$PORT"
+              echo "STATIC_DIR=$STATIC_DIR"
               echo "STATIC_ROOT_DIR=$STATIC_ROOT_DIR"
 
               echo "=== STATIC ROOT ==="
@@ -55,21 +63,64 @@ jobs:
               echo "=== ADMIN CONSOLE ==="
               ls -la /repo/static-root/admin-console || true
 
-              echo "=== ADMIN FILES ==="
-              find /repo/static-root/admin-console -maxdepth 2 -type f | head -30 || true
+              echo "=== ADMIN INDEX ==="
+              cat /repo/static-root/admin-console/index.html || true
 
-              echo "=== WORKSPACE SHELL ==="
+              echo "=== WORKSPACE ==="
               ls -la /repo/static-root/workspace-shell || true
 
-              echo "=== WORKSPACE FILES ==="
-              find /repo/static-root/workspace-shell -maxdepth 2 -type f | head -30 || true
+              echo "=== ROOT ==="
+              ls -la /repo || true
             '
 
+      # ---------------------------------------------------------------
+      # DIAGNOSTIC: Inspect the original working 11 Sep image
+      # ---------------------------------------------------------------
+      - name: Inspect original 11 Sep image
+        run: |
+          echo "========================================"
+          echo "ORIGINAL 11 SEP IMAGE"
+          echo "========================================"
+
+          docker pull \
+            $REGISTRY/$IMAGE_NAME:e397ac0d8a0823e2bfc4d095e9e0628de1e4f344
+
+          docker run --rm \
+            $REGISTRY/$IMAGE_NAME:e397ac0d8a0823e2bfc4d095e9e0628de1e4f344 \
+            sh -c '
+              echo "=== ENVIRONMENT ==="
+              echo "NODE_ENV=$NODE_ENV"
+              echo "PORT=$PORT"
+              echo "STATIC_DIR=$STATIC_DIR"
+              echo "STATIC_ROOT_DIR=$STATIC_ROOT_DIR"
+
+              echo "=== STATIC ROOT ==="
+              ls -la /repo/static-root || true
+
+              echo "=== ADMIN CONSOLE ==="
+              ls -la /repo/static-root/admin-console || true
+
+              echo "=== ADMIN INDEX ==="
+              cat /repo/static-root/admin-console/index.html || true
+
+              echo "=== WORKSPACE ==="
+              ls -la /repo/static-root/workspace-shell || true
+
+              echo "=== ROOT ==="
+              ls -la /repo || true
+            '
+
+      # ---------------------------------------------------------------
+      # Push the newly built image
+      # ---------------------------------------------------------------
       - name: Push Docker image
         run: |
           docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
           docker push $REGISTRY/$IMAGE_NAME:latest
 
+      # ---------------------------------------------------------------
+      # Deploy the newly built image to Azure App Service
+      # ---------------------------------------------------------------
       - name: Deploy container to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
