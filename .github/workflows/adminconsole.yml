@@ -40,6 +40,31 @@ jobs:
             -t $REGISTRY/$IMAGE_NAME:latest \
             .
 
+      - name: Inspect frontend files
+        run: |
+          docker run --rm $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
+            sh -c '
+              echo "=== ENVIRONMENT ==="
+              echo "NODE_ENV=$NODE_ENV"
+              echo "PORT=$PORT"
+              echo "STATIC_ROOT_DIR=$STATIC_ROOT_DIR"
+
+              echo "=== STATIC ROOT ==="
+              ls -la /repo/static-root || true
+
+              echo "=== ADMIN CONSOLE ==="
+              ls -la /repo/static-root/admin-console || true
+
+              echo "=== ADMIN FILES ==="
+              find /repo/static-root/admin-console -maxdepth 2 -type f | head -30 || true
+
+              echo "=== WORKSPACE SHELL ==="
+              ls -la /repo/static-root/workspace-shell || true
+
+              echo "=== WORKSPACE FILES ==="
+              find /repo/static-root/workspace-shell -maxdepth 2 -type f | head -30 || true
+            '
+
       - name: Push Docker image
         run: |
           docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
