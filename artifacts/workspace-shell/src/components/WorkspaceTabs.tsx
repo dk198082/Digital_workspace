@@ -290,6 +290,7 @@ const startEmbeddedLogin = () => {
       window.open(loginUrl, "_blank");
     }
 };
+
 return (
     <div
       className="absolute inset-0"
@@ -303,45 +304,35 @@ return (
             <strong>{app.name}</strong> is taking a while to load — it may not
             allow opening inside the Workspace.
           </span>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={startEmbeddedLogin}
-              className="rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100"
-            >
-              Sign in
-            </button>
-
-            <a
-              href={app.launchUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open in new tab
-            </a>
-          </div>
+          <a
+            href={app.launchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open in new tab instead
+          </a>
         </div>
       )}
-
-      {embeddedAuthReady && (
-          <iframe
-            key={`${app.id}-${iframeVersion}`}
-            src={iframeSrc}
-            title={app.name}
-            className="absolute inset-0 h-full w-full border-0"
-            style={{
-              display: visible ? "block" : "none",
-            }}
-            onLoad={() => {
-              setLoaded(true);
-              setSuspectedBlocked(false);
-            }}
-          />
-        )}
+      <iframe
+        src={withEmbeddedFlag(app.launchUrl)}
+        title={app.name}
+        data-testid={`iframe-app-${app.id}`}
+        className="h-full w-full border-0"
+        onLoad={() => {
+          setLoaded(true);
+          setSuspectedBlocked(false);
+        }}
+        // Deliberately no `sandbox` attribute: these are trusted, first-party
+        // organizational apps (not arbitrary third-party content), and they
+        // need normal cookie/storage/navigation behavior for their own
+        // Entra ID session to work — sandboxing would break that.
+        allow="clipboard-write"
+      />
     </div>
   );
 }
+
+
 
