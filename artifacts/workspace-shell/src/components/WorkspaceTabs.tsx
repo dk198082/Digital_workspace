@@ -7,7 +7,31 @@ export interface OpenTab {
 }
 
 const IFRAME_LOAD_TIMEOUT_MS = 12_000;
-//const WORKSPACE_ORIGIN = window.location.origin;
+
+/**
+ * Marks the URL as opened inside the Workspace, so a satellite app CAN
+ * detect this and hide its own redundant chrome (most commonly: its own
+ * "logged in as ..." user badge, since the Sidebar already shows that).
+ * This is a courtesy signal, not the primary detection mechanism — the
+ * simplest and most robust check for a satellite app to use is actually
+ * `window.self !== window.top` (works with zero coordination from this
+ * Shell at all), documented alongside this in
+ * docs/workspace/TECHNICAL_DESIGN.md, "Hiding an embedded app's own chrome".
+ * This query param exists as a second, explicit signal for apps that would
+ * rather check intent than infer it from being in *any* iframe.
+ */
+function withEmbeddedFlag(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("embedded", "1");
+    return parsed.toString();
+  } catch {
+    // Not a valid absolute URL — fall back to the raw value rather than
+    // throwing; the iframe will simply fail to load it either way, and
+    // that failure is already handled by the load-timeout banner above.
+    return url;
+  }
+}
 
 interface WorkspaceTabsProps {
   openTabs: OpenTab[];
@@ -180,7 +204,7 @@ function AppFrame({
 ]);
 
 
-  useEffect(() => {
+useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
     const isValidFieldServiceMessage =
       isFieldService &&
@@ -217,8 +241,7 @@ function AppFrame({
 ]);
 
 
-
-  async function checkFieldServiceSession(): Promise<boolean> {
+async function checkFieldServiceSession(): Promise<boolean> {
   try {
     const res = await fetch(
       `${app.launchUrl.replace(/\/$/, "")}/api/me`,
@@ -237,8 +260,7 @@ function AppFrame({
   }
 }
 
-
-  const startEmbeddedLogin = () => {
+const startEmbeddedLogin = () => {
     const loginUrl = `${app.launchUrl.replace(/\/$/, "")}/api/auth/login?embedded=1`;
 
     const width = 480;
@@ -268,8 +290,7 @@ function AppFrame({
       window.open(loginUrl, "_blank");
     }
 };
-
-  return (
+return (
     <div
       className="absolute inset-0"
       style={{ display: visible ? "block" : "none" }}
@@ -324,58 +345,3 @@ function AppFrame({
   );
 }
 
-// function AppFrame({ app, visible }: { app: SidebarApp; visible: boolean }) {
-//   const [suspectedBlocked, setSuspectedBlocked] = useState(false);
-//   const [loaded, setLoaded] = useState(false);
-//   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-//   useEffect(() => {
-//     timerRef.current = setTimeout(() => {
-//       if (!loaded) setSuspectedBlocked(true);
-//     }, IFRAME_LOAD_TIMEOUT_MS);
-//     return () => clearTimeout(timerRef.current);
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
-//   }, []);
-
-//   return (
-//     <div
-//       className="absolute inset-0"
-//       style={{ display: visible ? "block" : "none" }}
-//       data-testid={`frame-container-${app.id}`}
-//     >
-//       {suspectedBlocked && (
-//         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-//           <span className="flex items-center gap-2">
-//             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-//             <strong>{app.name}</strong> is taking a while to load — it may not
-//             allow opening inside the Workspace.
-//           </span>
-//           <a
-//             href={app.launchUrl}
-//             target="_blank"
-//             rel="noopener noreferrer"
-//             className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100"
-//           >
-//             <ExternalLink className="h-3.5 w-3.5" />
-//             Open in new tab instead
-//           </a>
-//         </div>
-//       )}
-//       <iframe
-//         src={app.launchUrl}
-//         title={app.name}
-//         data-testid={`iframe-app-${app.id}`}
-//         className="h-full w-full border-0"
-//         onLoad={() => {
-//           setLoaded(true);
-//           setSuspectedBlocked(false);
-//         }}
-//         // Deliberately no `sandbox` attribute: these are trusted, first-party
-//         // organizational apps (not arbitrary third-party content), and they
-//         // need normal cookie/storage/navigation behavior for their own
-//         // Entra ID session to work — sandboxing would break that.
-//         allow="clipboard-write"
-//       />
-//     </div>
-//   );
-// }

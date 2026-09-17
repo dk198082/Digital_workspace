@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, LayoutGrid, LogOut } from "lucide-react";
 import { resolveIcon } from "@/lib/icons";
 
 export interface SidebarApp {
@@ -15,18 +15,19 @@ interface SidebarProps {
   apps: SidebarApp[];
   activeAppId: number | null;
   onSelect: (app: SidebarApp) => void;
+  userName: string;
+  onSignOut: () => void;
 }
 
 /**
- * Left-nav menu: apps' `category` becomes a collapsible "main heading",
- * apps within it are the "sub menu" items directly beneath it — matching
- * the requested menu shape (e.g. "Business App" heading with "Field Service
- * Calendar"/"Production Shop Floor" beneath it; "Reporting Apps" heading
- * with "Packing Control Board"/"Production Priority Board" beneath it).
- * An app with no category falls under a plain "Apps" heading rather than
- * disappearing.
+ * The Workspace's entire chrome lives in this one vertical column now —
+ * compact brand header at the top, the scrollable app menu in the middle,
+ * and the signed-in user + sign-out at the bottom. There is deliberately no
+ * separate horizontal header bar above this anymore: that reclaimed row is
+ * exactly what makes the embedded app's content area get the full window
+ * height instead of sharing it with shell chrome.
  */
-export function Sidebar({ apps, activeAppId, onSelect }: SidebarProps) {
+export function Sidebar({ apps, activeAppId, onSelect, userName, onSignOut }: SidebarProps) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -55,7 +56,15 @@ export function Sidebar({ apps, activeAppId, onSelect }: SidebarProps) {
 
   return (
     <nav className="flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-ws-bg">
-      <div className="p-3">
+      {/* Compact brand header — replaces the old full-width top bar. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ws-accent">
+          <LayoutGrid className="h-3.5 w-3.5 text-ws-bg" />
+        </div>
+        <span className="text-sm font-bold tracking-tight text-white">Workspace</span>
+      </div>
+
+      <div className="shrink-0 p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ws-text-secondary/60" />
           <input
@@ -66,7 +75,10 @@ export function Sidebar({ apps, activeAppId, onSelect }: SidebarProps) {
           />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-3">
+
+      {/* The only element that scrolls — the header and footer stay fixed,
+          so a long app list never pushes sign-out off screen. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {grouped.map(([category, categoryApps]) => {
           const isCollapsed = collapsed.has(category);
           return (
@@ -113,6 +125,26 @@ export function Sidebar({ apps, activeAppId, onSelect }: SidebarProps) {
         {grouped.length === 0 && (
           <div className="px-3 py-6 text-center text-sm text-ws-text-secondary/70">No apps found.</div>
         )}
+      </div>
+
+      {/* User + sign-out footer — where the old top-right header content moved to. */}
+      <div className="shrink-0 border-t border-white/10 p-3">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-white" data-testid="text-user-name">
+              {userName}
+            </div>
+          </div>
+          <button
+            onClick={onSignOut}
+            title="Sign out"
+            data-testid="button-sign-out"
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/15 px-2 py-1.5 text-xs text-ws-text-secondary hover:bg-white/10 hover:text-white"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
       </div>
     </nav>
   );

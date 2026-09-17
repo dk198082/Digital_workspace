@@ -101,52 +101,39 @@ export function Workspace({ user }: { user: AuthUser }) {
     [activeAppId],
   );
 
+  const userName = data?.userName ?? user.name;
+
+
   return (
-    <div className="flex h-[100dvh] flex-col bg-ws-bg">
-      <header className="flex shrink-0 items-center gap-6 border-b border-white/10 bg-ws-bg px-6 py-3 text-white">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ws-accent">
-            <LayoutGrid className="h-4.5 w-4.5 text-ws-bg" />
-          </div>
-          <span className="font-bold tracking-tight">Workspace</span>
+    <div className="flex h-[100dvh] bg-ws-bg">
+      {isLoading ? (
+        <div className="flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-ws-bg p-3">
+          <div className="h-8 animate-pulse rounded bg-white/5" />
         </div>
-        <div className="ml-auto flex items-center gap-4 text-sm">
-          <span className="hidden text-ws-text-secondary sm:inline">{data?.userName ?? user.name}</span>
-          <button
-            onClick={signOut}
-            className="flex items-center gap-1.5 rounded-md border border-white/15 px-3 py-1.5 text-ws-text-secondary hover:bg-white/10 hover:text-white"
-            data-testid="button-sign-out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Sign out
-          </button>
+      ) : isError ? (
+        <div className="flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-ws-bg p-4 text-sm text-red-300">
+          Couldn't load your apps.
         </div>
-      </header>
+      ) : (
+        <Sidebar
+          apps={data?.apps ?? []}
+          activeAppId={activeAppId}
+          onSelect={openApp}
+          userName={userName}
+          onSignOut={signOut}
+        />
+      )}
 
-      <div className="flex flex-1 overflow-hidden">
-        {isLoading ? (
-          <div className="w-64 shrink-0 border-r border-white/10 bg-ws-bg p-3">
-            <div className="h-8 animate-pulse rounded bg-white/5" />
-          </div>
-        ) : isError ? (
-          <div className="w-64 shrink-0 border-r border-white/10 bg-ws-bg p-4 text-sm text-red-300">
-            Couldn't load your apps.
-          </div>
-        ) : (
-          <Sidebar apps={data?.apps ?? []} activeAppId={activeAppId} onSelect={openApp} />
-        )}
-
-        {(data?.apps.length ?? 0) === 0 && !isLoading && !isError ? (
-          <EmptyState />
-        ) : (
-          <WorkspaceTabs
-            openTabs={openTabs}
-            activeAppId={activeAppId}
-            onActivate={setActiveAppId}
-            onClose={closeTab}
-          />
-        )}
-      </div>
+      {(data?.apps.length ?? 0) === 0 && !isLoading && !isError ? (
+        <EmptyState />
+      ) : (
+        <WorkspaceTabs
+          openTabs={openTabs}
+          activeAppId={activeAppId}
+          onActivate={setActiveAppId}
+          onClose={closeTab}
+        />
+      )}
     </div>
   );
 }
