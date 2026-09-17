@@ -102,8 +102,6 @@ export function Workspace({ user }: { user: AuthUser }) {
   );
 
   const userName = data?.userName ?? user.name;
-
-
   return (
     <div className="flex h-[100dvh] bg-ws-bg">
       {isLoading ? (
