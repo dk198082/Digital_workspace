@@ -149,18 +149,147 @@ function Tab({
   );
 }
 
-function AppFrame({ app, visible }: { app: SidebarApp; visible: boolean }) {
+function AppFrame({
+  app,
+  visible,
+}: {
+  app: SidebarApp;
+  visible: boolean;
+}) {
+
+  const isFieldService = app.name === "Field Service Calendar";
+  const isProductionShopFloor = app.name === "Production Shop Floor";
+
   const [suspectedBlocked, setSuspectedBlocked] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [iframeVersion, setIframeVersion] = useState(0);
 
-  useEffect(() => {
-    timerRef.current = setTimeout(() => {
-      if (!loaded) setSuspectedBlocked(true);
-    }, IFRAME_LOAD_TIMEOUT_MS);
-    return () => clearTimeout(timerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [embeddedAuthReady, setEmbeddedAuthReady] = useState(
+  !isFieldService && !isProductionShopFloor,
+);
+
+  const FIELD_SERVICE_ORIGIN = isFieldService
+  ? new URL(app.launchUrl).origin
+  : null;
+
+  const PRODUCTION_ORIGIN = isProductionShopFloor
+  ? new URL(app.launchUrl).origin
+  : null;
+
+
+  const iframeSrc =
+  isFieldService || isProductionShopFloor
+    ? `${app.launchUrl}${app.launchUrl.includes("?") ? "&" : "?"}embedded=1`
+    : app.launchUrl;
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined,);
+
+ 
+ useEffect(() => {
+  if (!isFieldService && !isProductionShopFloor) return;
+  if (!embeddedAuthReady) return;
+
+  timerRef.current = setTimeout(() => {
+    if (!loaded) {
+      setSuspectedBlocked(true);
+    }
+  }, IFRAME_LOAD_TIMEOUT_MS);
+
+  return () => clearTimeout(timerRef.current);
+}, [
+  loaded,
+  embeddedAuthReady,
+  isFieldService,
+  isProductionShopFloor,
+]);
+
+
+useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+    const isValidFieldServiceMessage =
+      isFieldService &&
+      FIELD_SERVICE_ORIGIN &&
+      event.origin === FIELD_SERVICE_ORIGIN &&
+      event.data?.type === "FIELD_SERVICE_AUTH_COMPLETE";
+
+    const isValidProductionMessage =
+      isProductionShopFloor &&
+      PRODUCTION_ORIGIN &&
+      event.origin === PRODUCTION_ORIGIN &&
+      event.data?.type === "PRODUCTION_AUTH_COMPLETE";
+
+    if (!isValidFieldServiceMessage && !isValidProductionMessage) {
+      return;
+    }
+
+      setEmbeddedAuthReady(true);
+      setLoaded(false);
+      setSuspectedBlocked(false);
+      setIframeVersion((version) => version + 1);
+  };
+
+  window.addEventListener("message", handleMessage);
+
+  return () => {
+    window.removeEventListener("message", handleMessage);
+  };
+}, [
+  isFieldService,
+  FIELD_SERVICE_ORIGIN,
+  isProductionShopFloor,
+  PRODUCTION_ORIGIN,
+]);
+
+
+async function checkFieldServiceSession(): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${app.launchUrl.replace(/\/$/, "")}/api/me`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
+      },
+    );
+
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const startEmbeddedLogin = () => {
+    const loginUrl = `${app.launchUrl.replace(/\/$/, "")}/api/auth/login?embedded=1`;
+
+    const width = 480;
+    const height = 600;
+
+    const left =
+      window.screenX +
+      Math.max(0, (window.outerWidth - width) / 2);
+
+    const top =
+      window.screenY +
+      Math.max(0, (window.outerHeight - height) / 2);
+
+    const popup = window.open(
+      loginUrl,
+      "production-sso",
+      `width=${width},height=${height},left=${Math.round(
+        left,
+      )},top=${Math.round(
+        top,
+      )},resizable=yes,scrollbars=yes`,
+    );
+
+    if (popup) {
+      popup.focus();
+    } else {
+      window.open(loginUrl, "_blank");
+    }
+};
 
   return (
     <div
@@ -186,21 +315,21 @@ function AppFrame({ app, visible }: { app: SidebarApp; visible: boolean }) {
           </a>
         </div>
       )}
-      <iframe
-        src={withEmbeddedFlag(app.launchUrl)}
-        title={app.name}
-        data-testid={`iframe-app-${app.id}`}
-        className="h-full w-full border-0"
-        onLoad={() => {
-          setLoaded(true);
-          setSuspectedBlocked(false);
-        }}
-        // Deliberately no `sandbox` attribute: these are trusted, first-party
-        // organizational apps (not arbitrary third-party content), and they
-        // need normal cookie/storage/navigation behavior for their own
-        // Entra ID session to work — sandboxing would break that.
-        allow="clipboard-write"
-      />
+      {embeddedAuthReady && (
+          <iframe
+            key={`${app.id}-${iframeVersion}`}
+            src={iframeSrc}
+            title={app.name}
+            className="absolute inset-0 h-full w-full border-0"
+            style={{
+              display: visible ? "block" : "none",
+            }}
+            onLoad={() => {
+              setLoaded(true);
+              setSuspectedBlocked(false);
+            }}
+          />
+        )}
     </div>
   );
 }

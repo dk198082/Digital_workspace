@@ -42,12 +42,60 @@ export function Workspace({ user }: { user: AuthUser }) {
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
 
   const openApp = useCallback((app: SidebarApp) => {
-    setOpenTabs((prev) => {
-      if (prev.some((t) => t.app.id === app.id)) return prev;
-      return [...prev, { app }];
-    });
-    setActiveAppId(app.id);
-  }, []);
+    
+  const isFieldService = app.name === "Field Service Calendar";
+  const isProductionShopFloor = app.name === "Production Shop Floor";
+
+  setOpenTabs((prev) => {
+    // If the tab is already open, just activate it.
+    if (prev.some((t) => t.app.id === app.id)) {
+      return prev;
+    }
+
+    // Start Field Service SSO directly from the user's click.
+    if (isFieldService || isProductionShopFloor) {
+      const loginPath = isFieldService
+        ? "/api/login?embedded=1"
+        : "/api/auth/login?embedded=1";
+
+      const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
+
+      const popupWidth = 480;
+      const popupHeight = 600;
+
+      const Center = Math.max(
+        0,
+        Math.round((window.screen.availWidth - popupWidth) / 2),
+      );
+
+      const top = Math.max(
+        0,
+        Math.round((window.screen.availHeight - popupHeight) / 2),
+      );
+
+      const popup = window.open(
+        loginUrl,
+        "fieldservice-sso",
+        [
+          `width=${popupWidth}`,
+          `height=${popupHeight}`,
+          `Center=${Center}`,
+          `top=${top}`,
+          "resizable=yes",
+          "scrollbars=yes",
+        ].join(","),
+      );
+
+      if (popup) {
+        popup.focus();
+      }
+    }
+
+    return [...prev, { app }];
+  });
+
+  setActiveAppId(app.id);
+}, []);
 
   const closeTab = useCallback(
     (appId: number) => {
