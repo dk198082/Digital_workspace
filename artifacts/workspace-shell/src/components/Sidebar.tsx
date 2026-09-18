@@ -86,7 +86,7 @@ export function Sidebar({ apps, activeAppId, onSelect, userName, onSignOut }: Si
               <button
                 onClick={() => toggle(category)}
                 data-testid={`heading-category-${category}`}
-                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-ws-text-secondary hover:bg-white/5"
+                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm font-semibold text-ws-text-secondary hover:bg-white/5"
               >
                 {isCollapsed ? (
                   <ChevronRight className="h-3.5 w-3.5" />

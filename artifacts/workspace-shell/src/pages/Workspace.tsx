@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, LayoutGrid } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { Sidebar, type SidebarApp } from "@/components/Sidebar";
 import { WorkspaceTabs, type OpenTab } from "@/components/WorkspaceTabs";
 import type { AuthUser } from "@/App";
@@ -27,66 +27,27 @@ async function signOut() {
   window.location.href = "/";
 }
 
+/**
+ * No top horizontal header anymore — everything that used to live there
+ * (brand, signed-in user, sign-out) now lives inside the Sidebar column
+ * (see Sidebar.tsx: a compact header row at its top, a footer row at its
+ * bottom). That's a deliberate trade: it gives the embedded app's content
+ * area the FULL window height instead of sharing a row with shell chrome —
+ * the whole point being that once you're inside an app, it should feel like
+ * you have the whole window, not a shell wrapped around a smaller one.
+ */
 export function Workspace({ user }: { user: AuthUser }) {
   const { data, isLoading, isError } = useMyApps();
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
 
   const openApp = useCallback((app: SidebarApp) => {
-    
-  const isFieldService = app.name === "Field Service Calendar";
-  const isProductionShopFloor = app.name === "Production Shop Floor";
-
-  setOpenTabs((prev) => {
-    // If the tab is already open, just activate it.
-    if (prev.some((t) => t.app.id === app.id)) {
-      return prev;
-    }
-
-    // Start Field Service SSO directly from the user's click.
-    if (isFieldService || isProductionShopFloor) {
-      const loginPath = isFieldService
-        ? "/api/login?embedded=1"
-        : "/api/auth/login?embedded=1";
-
-      const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
-
-      const popupWidth = 480;
-      const popupHeight = 600;
-
-      const Center = Math.max(
-        0,
-        Math.round((window.screen.availWidth - popupWidth) / 2),
-      );
-
-      const top = Math.max(
-        0,
-        Math.round((window.screen.availHeight - popupHeight) / 2),
-      );
-
-      const popup = window.open(
-        loginUrl,
-        "fieldservice-sso",
-        [
-          `width=${popupWidth}`,
-          `height=${popupHeight}`,
-          `Center=${Center}`,
-          `top=${top}`,
-          "resizable=yes",
-          "scrollbars=yes",
-        ].join(","),
-      );
-
-      if (popup) {
-        popup.focus();
-      }
-    }
-
-    return [...prev, { app }];
-  });
-
-  setActiveAppId(app.id);
-}, []);
+    setOpenTabs((prev) => {
+      if (prev.some((t) => t.app.id === app.id)) return prev;
+      return [...prev, { app }];
+    });
+    setActiveAppId(app.id);
+  }, []);
 
   const closeTab = useCallback(
     (appId: number) => {
@@ -102,6 +63,7 @@ export function Workspace({ user }: { user: AuthUser }) {
   );
 
   const userName = data?.userName ?? user.name;
+
   return (
     <div className="flex h-[100dvh] bg-ws-bg">
       {isLoading ? (
