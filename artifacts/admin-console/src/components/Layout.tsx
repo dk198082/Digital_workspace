@@ -37,7 +37,7 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const queryClient = useQueryClient();
 
   const signOut = async () => {
-    await fetch(`/api/auth/logout`, {
+    await fetch(`${import.meta.env.BASE_URL}api/auth/logout`, {
       method: "POST",
       credentials: "include",
     });

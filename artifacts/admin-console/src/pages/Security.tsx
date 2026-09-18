@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SecurityPolicy } from "@workspace/api-client-react";
 import ApiKeysSection from "@/components/ApiKeysSection";
 import { AddAppDialog } from "@/components/ManageAppsDialog";
-import { WorkspaceTilesSection } from "@/components/WorkspaceTilesSection";
 
 export default function Security() {
   const queryClient = useQueryClient();
@@ -213,10 +212,6 @@ export default function Security() {
           );
         })}
       </Tabs>
-
-      <div className="mt-8">
-        <WorkspaceTilesSection />
-      </div>
 
       <ApiKeysSection />
       <AddAppDialog

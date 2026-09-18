@@ -304,7 +304,7 @@ function StatCard({ title, value, subtitle, icon: Icon }: { title: string, value
         <Icon className="h-16 w-16 text-primary" />
       </div>
       <CardHeader className="pb-2 relative z-10">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</CardTitle>
       </CardHeader>
       <CardContent className="relative z-10">
         <div className="text-3xl font-bold font-mono text-foreground">{value}</div>
