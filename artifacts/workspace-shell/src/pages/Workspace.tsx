@@ -14,8 +14,14 @@ function useMyApps() {
   return useQuery<MyAppsResponse>({
     queryKey: ["my-apps"],
     queryFn: async () => {
-      const res = await fetch("/api/my-apps", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load your apps");
+      const res = await fetch("/api/my-apps", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load your apps");
+      }
+
       return res.json();
     },
     staleTime: 60 * 1000,
@@ -23,89 +29,122 @@ function useMyApps() {
 }
 
 async function signOut() {
-  await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+
   window.location.href = "/";
 }
 
-/**
- * No top horizontal header anymore — everything that used to live there
- * (brand, signed-in user, sign-out) now lives inside the Sidebar column
- * (see Sidebar.tsx: a compact header row at its top, a footer row at its
- * bottom). That's a deliberate trade: it gives the embedded app's content
- * area the FULL window height instead of sharing a row with shell chrome —
- * the whole point being that once you're inside an app, it should feel like
- * you have the whole window, not a shell wrapped around a smaller one.
- */
 export function Workspace({ user }: { user: AuthUser }) {
   const { data, isLoading, isError } = useMyApps();
+
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
 
   const openApp = useCallback((app: SidebarApp) => {
-    
-  const isFieldService = app.name === "Field Service Calendar";
-  const isProductionShopFloor = app.name === "Production Shop Floor";
-  const isProductionPriority = app.name === "Production Priority Board";
-  const isPackingControl = app.name === "Packing Control Board";
-  
-  setOpenTabs((prev) => {
-    // If the tab is already open, just activate it.
-    if (prev.some((t) => t.app.id === app.id)) {
-      return prev;
-    }
-    
-    // Start Field Service SSO directly from the user's click.
-    if (isFieldService || isProductionShopFloor || isProductionPriority || isPackingControl) {
-        const loginPath = isFieldService
-        ? "/api/login?embedded=1"
-        : "/api/auth/login?embedded=1";
+    const isFieldService =
+      app.name === "Field Service Calendar";
 
-      const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
+    const isProductionShopFloor =
+      app.name === "Production Shop Floor";
 
-      const popupWidth = 480;
-      const popupHeight = 600;
+    const isProductionPriority =
+      app.name === "Production Priority Board";
 
-      const Center = Math.max(
-        0,
-        Math.round((window.screen.availWidth - popupWidth) / 2),
-      );
+    const isPackingControl =
+      app.name === "Packing Control Board";
 
-      const top = Math.max(
-        0,
-        Math.round((window.screen.availHeight - popupHeight) / 2),
-      );
-
-      const popup = window.open(
-        loginUrl,
-        "fieldservice-sso",
-        [
-          `width=${popupWidth}`,
-          `height=${popupHeight}`,
-          `Center=${Center}`,
-          `top=${top}`,
-          "resizable=yes",
-          "scrollbars=yes",
-        ].join(","),
-      );
-
-      if (popup) {
-        popup.focus();
+    setOpenTabs((prev) => {
+      // If the tab is already open, just activate it.
+      if (prev.some((t) => t.app.id === app.id)) {
+        return prev;
       }
-    }
 
-    return [...prev, { app }];
-  });
+      // Apps that require their own Microsoft/Admin Console SSO flow.
+      const requiresEmbeddedSSO =
+        isFieldService ||
+        isProductionShopFloor ||
+        isProductionPriority ||
+        isPackingControl;
 
-  setActiveAppId(app.id);
-}, []);
+      if (requiresEmbeddedSSO) {
+        const loginPath = isFieldService
+          ? "/api/login?embedded=1"
+          : "/api/auth/login?embedded=1";
+
+        const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
+
+        const popupWidth = 480;
+        const popupHeight = 600;
+
+        const left = Math.max(
+          0,
+          Math.round(
+            (window.screen.availWidth - popupWidth) / 2,
+          ),
+        );
+
+        const top = Math.max(
+          0,
+          Math.round(
+            (window.screen.availHeight - popupHeight) / 2,
+          ),
+        );
+
+        // Give each application its own popup name.
+        let popupName = "workspace-sso";
+
+        if (isFieldService) {
+          popupName = "fieldservice-sso";
+        } else if (isProductionShopFloor) {
+          popupName = "production-shop-floor-sso";
+        } else if (isProductionPriority) {
+          popupName = "production-priority-sso";
+        } else if (isPackingControl) {
+          popupName = "packing-control-sso";
+        }
+
+        const popup = window.open(
+          loginUrl,
+          popupName,
+          [
+            `width=${popupWidth}`,
+            `height=${popupHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            "resizable=yes",
+            "scrollbars=yes",
+          ].join(","),
+        );
+
+        if (popup) {
+          popup.focus();
+        }
+      }
+
+      return [...prev, { app }];
+    });
+
+    setActiveAppId(app.id);
+  }, []);
 
   const closeTab = useCallback(
     (appId: number) => {
       setOpenTabs((prev) => {
-        const next = prev.filter((t) => t.app.id !== appId);
+        const next = prev.filter(
+          (t) => t.app.id !== appId,
+        );
+
         if (activeAppId === appId) {
-          setActiveAppId(next.length > 0 ? next[next.length - 1]!.app.id : null);
+          setActiveAppId(
+            next.length > 0
+              ? next[next.length - 1]!.app.id
+              : null,
+          );
         }
+
         return next;
       });
     },
@@ -134,7 +173,9 @@ export function Workspace({ user }: { user: AuthUser }) {
         />
       )}
 
-      {(data?.apps.length ?? 0) === 0 && !isLoading && !isError ? (
+      {(data?.apps.length ?? 0) === 0 &&
+      !isLoading &&
+      !isError ? (
         <EmptyState />
       ) : (
         <WorkspaceTabs
@@ -152,10 +193,15 @@ function EmptyState() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
       <LayoutGrid className="h-8 w-8 text-white/20" />
-      <h3 className="mt-4 text-lg font-semibold text-white">No applications yet</h3>
+
+      <h3 className="mt-4 text-lg font-semibold text-white">
+        No applications yet
+      </h3>
+
       <p className="mt-1 max-w-sm text-sm text-ws-text-secondary">
-        You're signed in, but no applications have been assigned to your
-        account yet. Contact an administrator to request access.
+        You're signed in, but no applications have been assigned
+        to your account yet. Contact an administrator to request
+        access.
       </p>
     </div>
   );
