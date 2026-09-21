@@ -18,8 +18,7 @@ function parseLenientPostgresUrl(raw: string): pg.PoolConfig {
     throw new Error("AZURE_DATABASE_URL must include a password");
   }
   const user = decodeURIComponent(userinfo.slice(0, colon));
-  // const password = userinfo.slice(colon + 1);
-  const password = decodeURIComponent(userinfo.slice(colon + 1));
+  const password = userinfo.slice(colon + 1);
   const [host, port] = hostport.split(":");
   return {
     host,
@@ -30,8 +29,7 @@ function parseLenientPostgresUrl(raw: string): pg.PoolConfig {
     // Azure PostgreSQL certificates chain to public CAs, so full
     // certificate verification works (stronger than sslmode=require).
     ssl: { rejectUnauthorized: true },
-    // options: `-csearch_path=${AZURE_SCHEMA}`,
-    options: `-c search_path=${AZURE_SCHEMA}`,
+    options: `-csearch_path=${AZURE_SCHEMA}`,
   };
 }
 
@@ -60,14 +58,10 @@ export function getDbPoolConfig(): pg.PoolConfig {
   if (azureUrl && azureUrl.trim() !== "") {
     return parseLenientPostgresUrl(azureUrl);
   }
-      if (!process.env.DATABASE_URL) {
-      throw new Error(
-        "Neither AZURE_DATABASE_URL nor DATABASE_URL is set. Did you forget to provision a database?",
-      );
-    }
-
-    return {
-      connectionString: process.env.DATABASE_URL,
-      options: `-c search_path=${AZURE_SCHEMA}`,
-    };
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      "Neither AZURE_DATABASE_URL nor DATABASE_URL is set. Did you forget to provision a database?",
+    );
+  }
+  return { connectionString: process.env.DATABASE_URL };
 }
