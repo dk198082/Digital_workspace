@@ -160,6 +160,7 @@ function AppFrame({
   const isFieldService = app.name === "Field Service Calendar";
   const isProductionShopFloor = app.name === "Production Shop Floor";
   const isProductionPriority = app.name === "Production Priority Board";
+  const isPackingControl = app.name === "Packing Control Board";
 
   const [suspectedBlocked, setSuspectedBlocked] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -168,7 +169,8 @@ function AppFrame({
   const [embeddedAuthReady, setEmbeddedAuthReady] = useState(
   !isFieldService &&
   !isProductionShopFloor &&
-  !isProductionPriority,
+  !isProductionPriority &&
+  !isPackingControl,
   );
 
   const FIELD_SERVICE_ORIGIN = isFieldService
@@ -183,11 +185,16 @@ function AppFrame({
   ? new URL(app.launchUrl).origin
   : null;
 
-
+  const PACKING_CONTROL_ORIGIN =
+  isPackingControl
+    ? new URL(app.launchUrl).origin
+    : null;
+    
   const iframeSrc =
   isFieldService ||
   isProductionShopFloor ||
-  isProductionPriority
+  isProductionPriority ||
+  isPackingControl
     ? `${app.launchUrl}${app.launchUrl.includes("?") ? "&" : "?"}embedded=1`
     : app.launchUrl;
 
@@ -195,7 +202,7 @@ function AppFrame({
 
  
  useEffect(() => {
-  if (!isFieldService && !isProductionShopFloor && !isProductionPriority) return;
+  if (!isFieldService && !isProductionShopFloor && !isProductionPriority && !isPackingControl) return;
   if (!embeddedAuthReady) return;
 
   timerRef.current = setTimeout(() => {
@@ -211,6 +218,7 @@ function AppFrame({
   isFieldService,
   isProductionShopFloor,
   isProductionPriority,
+  isPackingControl,
 ]);
 
 
@@ -233,11 +241,19 @@ useEffect(() => {
       PRODUCTION_PRIORITY_ORIGIN &&
       event.origin === PRODUCTION_PRIORITY_ORIGIN &&
       event.data?.type === "PRODUCTION_PRIORITY_AUTH_COMPLETE";
+      
+    const isValidPackingMessage =
+      isPackingControl &&
+      PACKING_CONTROL_ORIGIN &&
+      event.origin === PACKING_CONTROL_ORIGIN &&
+      event.data?.type ===
+        "PACKING_CONTROL_AUTH_COMPLETE";
 
     if (
         !isValidFieldServiceMessage &&
         !isValidProductionMessage &&
-        !isValidProductionPriorityMessage
+        !isValidProductionPriorityMessage &&
+        !isValidPackingMessage
       ) {
         return;
       }
@@ -260,6 +276,8 @@ useEffect(() => {
   PRODUCTION_ORIGIN,
   isProductionPriority,
   PRODUCTION_PRIORITY_ORIGIN,
+  isPackingControl,
+  PACKING_CONTROL_ORIGIN,
 ]);
 
 
