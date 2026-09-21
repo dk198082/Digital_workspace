@@ -8,7 +8,8 @@ import {
   AppWindow,
   Trash2,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/access-mapping", label: "Map User Security Access", icon: AppWindow },
   { href: "/security", label: "Security Policies", icon: Lock },
   { href: "/audit", label: "Audit Log", icon: ActivitySquare },
+  { href: "/activity-report", label: "Activity Report", icon: BarChart3 },
   { href: "/sync-errors", label: "Data Sync Error Log", icon: AlertTriangle },
   { href: "/work-order-purge", label: "Work Order Purge", icon: Trash2 },
 ];
@@ -37,7 +39,7 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const queryClient = useQueryClient();
 
   const signOut = async () => {
-    await fetch(`/api/auth/logout`, {
+    await fetch(`${import.meta.env.BASE_URL}api/auth/logout`, {
       method: "POST",
       credentials: "include",
     });

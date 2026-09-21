@@ -1,224 +1,275 @@
 import { useState } from "react";
 import {
-  useListApps, getListAppsQueryKey,
-  useUpdateAppLaunch,
+  getListAppsQueryKey,
+  useUpdateApp,
+  type App,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ExternalLink, Pencil } from "lucide-react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ExternalLink, LayoutGrid, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-function errMsg(err: unknown, fallback: string): string {
-  return err && typeof err === "object" && "error" in err
-    ? String((err as { error: unknown }).error)
-    : fallback;
-}
+type TileDraft = {
+  name: string;
+  launchUrl: string;
+  description: string;
+  icon: string;
+  category: string;
+};
 
-// Must stay in sync with artifacts/workspace-shell/src/lib/icons.ts — that
-// file is the actual runtime registry; this list only exists so an admin
-// picks from names that are guaranteed to render. Adding a new icon means
-// updating both places (see docs/workspace/ADDING_NEW_APPS.md).
 const ICON_OPTIONS = [
-  "Wrench", "Factory", "ShoppingCart", "Package", "BarChart3",
-  "Settings", "Users", "ClipboardList", "Calendar", "Truck",
-  "ShieldCheck", "Database",
+  { value: "LayoutGrid", label: "Workspace" },
+  { value: "Factory", label: "Production" },
+  { value: "CalendarDays", label: "Calendar" },
+  { value: "BarChart3", label: "Reporting" },
+  { value: "Wrench", label: "Service" },
+  { value: "Shield", label: "Administration" },
 ] as const;
 
-interface AppWithLaunch {
-  id: number;
-  name: string;
-  launchUrl?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  category?: string | null;
+function draftFromApp(app: App): TileDraft {
+  return {
+    name: app.name,
+    launchUrl: app.launchUrl ?? "",
+    description: app.description ?? "",
+    icon: app.icon ?? "",
+    category: app.category ?? "",
+  };
 }
 
-/**
- * Lets an admin set (or clear) the fields that turn an onboarded app into a
- * Workspace tile: launchUrl, icon, category, description. An app with no
- * launchUrl never appears as a tile, regardless of who has roles for it —
- * this is the one remaining manual step after onboarding a new app via "Add
- * App" above and assigning roles under Map User Security Access. See
- * docs/workspace/ADDING_NEW_APPS.md for the full runbook.
- */
-export function WorkspaceTilesSection() {
+function errorMessage(error: unknown): string {
+  return error && typeof error === "object" && "error" in error
+    ? String((error as { error: unknown }).error)
+    : "Workspace tile could not be updated";
+}
+
+export default function WorkspaceTilesSection({
+  apps,
+  onAdd,
+}: {
+  apps: App[];
+  onAdd: () => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: apps } = useListApps({ query: { queryKey: getListAppsQueryKey() } });
-  const updateLaunch = useUpdateAppLaunch();
+  const updateApp = useUpdateApp();
+  const [editingApp, setEditingApp] = useState<App | null>(null);
+  const [draft, setDraft] = useState<TileDraft | null>(null);
 
-  const [editing, setEditing] = useState<AppWithLaunch | null>(null);
-  const [launchUrl, setLaunchUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [icon, setIcon] = useState<string>("");
-  const [category, setCategory] = useState("");
-
-  const openEditor = (app: AppWithLaunch) => {
-    setEditing(app);
-    setLaunchUrl(app.launchUrl ?? "");
-    setDescription(app.description ?? "");
-    setIcon(app.icon ?? "");
-    setCategory(app.category ?? "");
+  const startEdit = (app: App) => {
+    setEditingApp(app);
+    setDraft(draftFromApp(app));
   };
 
-  const save = () => {
-    if (!editing) return;
-    updateLaunch.mutate(
+  const closeEditor = () => {
+    setEditingApp(null);
+    setDraft(null);
+  };
+
+  const saveTile = () => {
+    if (!editingApp || !draft || !draft.name.trim()) {
+      toast({ title: "App name is required", variant: "destructive" });
+      return;
+    }
+    if (draft.launchUrl.trim()) {
+      try {
+        new URL(draft.launchUrl.trim());
+      } catch {
+        toast({ title: "Launch URL must be a valid web address", variant: "destructive" });
+        return;
+      }
+    }
+    updateApp.mutate(
       {
-        id: editing.id,
+        id: editingApp.id,
         data: {
-          launchUrl: launchUrl.trim() || null,
-          description: description.trim() || null,
-          icon: icon || null,
-          category: category.trim() || null,
+          name: draft.name.trim(),
+          launchUrl: draft.launchUrl.trim() || null,
+          description: draft.description.trim() || null,
+          icon: draft.icon.trim() || null,
+          category: draft.category.trim() || null,
         },
       },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListAppsQueryKey() });
-          toast({ title: `Workspace tile updated for ${editing.name}` });
-          setEditing(null);
+          toast({ title: `Workspace tile for "${draft.name.trim()}" updated` });
+          closeEditor();
         },
-        onError: (err) =>
-          toast({ title: "Couldn't save", description: errMsg(err, "Please try again."), variant: "destructive" }),
+        onError: (error) =>
+          toast({ title: errorMessage(error), variant: "destructive" }),
       },
     );
   };
 
+  const updateDraft = (field: keyof TileDraft, value: string) => {
+    setDraft((current) => current ? { ...current, [field]: value } : current);
+  };
+
   return (
-    <Card data-testid="card-workspace-tiles">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <LayoutGrid className="h-4 w-4" />
-          Workspace Tiles
-        </CardTitle>
-        <CardDescription>
-          Control how each app appears as a launch tile in the Digital Workspace.
-          An app with no launch URL set is never shown to anyone, even if they
-          have roles for it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="divide-y rounded-md border">
-          {(apps ?? []).map((app) => (
-            <div
-              key={app.id}
-              className="flex items-center justify-between gap-4 px-4 py-3"
-              data-testid={`row-tile-${app.id}`}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 font-medium">
-                  {app.name}
-                  {app.launchUrl ? (
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      Not visible in Workspace
-                    </span>
+    <>
+      <Card className="mb-8 shadow-sm">
+        <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <LayoutGrid className="h-5 w-5 text-primary" />
+              Workspace Tiles
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Control how each app appears as a launch tile in the Digital Workspace.
+              An app with no launch URL is hidden from the Workspace.
+            </CardDescription>
+          </div>
+          <Button type="button" onClick={onAdd} className="shrink-0">
+            <Plus className="mr-2 h-4 w-4" />
+            Add app
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y rounded-md border">
+            {apps.length ? apps.map((app) => (
+              <div
+                key={app.id}
+                className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{app.name}</span>
+                    {app.launchUrl ? (
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : (
+                      <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        Not visible in Workspace
+                      </span>
+                    )}
+                  </div>
+                  {app.launchUrl && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <a
+                        href={app.launchUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="max-w-full truncate hover:text-foreground hover:underline"
+                      >
+                        {app.launchUrl}
+                      </a>
+                      {app.category && <><span>·</span><span>{app.category}</span></>}
+                    </div>
+                  )}
+                  {app.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">{app.description}</p>
                   )}
                 </div>
-                {app.launchUrl ? (
-                  <div className="truncate text-sm text-muted-foreground">
-                    {app.launchUrl}
-                    {app.category ? ` · ${app.category}` : ""}
-                  </div>
-                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => startEdit(app)}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit tile
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openEditor(app)}
-                data-testid={`button-edit-tile-${app.id}`}
-              >
-                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                Edit tile
-              </Button>
-            </div>
-          ))}
-          {(apps ?? []).length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              No apps onboarded yet — use "Add App" above.
-            </div>
-          ) : null}
-        </div>
-      </CardContent>
+            )) : (
+              <p className="p-6 text-center text-sm text-muted-foreground">
+                No applications have been added.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent>
+      <Dialog open={!!editingApp} onOpenChange={(open) => !open && closeEditor()}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Edit Workspace tile — {editing?.name}</DialogTitle>
+            <DialogTitle>Edit Workspace tile — {editingApp?.name}</DialogTitle>
             <DialogDescription>
-              These fields only control how (and whether) this app appears in
-              the Digital Workspace launcher. They don't change who is allowed
-              to use the app — that's still managed under Map User Security
-              Access.
+              These fields only control how (and whether) this app appears in the Digital
+              Workspace launcher. They don&apos;t change who is allowed to use the app —
+              that&apos;s still managed under Map User Security Access.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="tile-launch-url">Launch URL</Label>
-              <Input
-                id="tile-launch-url"
-                placeholder="https://fieldservice.contoso.com"
-                value={launchUrl}
-                onChange={(e) => setLaunchUrl(e.target.value)}
-                data-testid="input-tile-launch-url"
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave blank to hide this app from the Workspace entirely.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tile-description">Description</Label>
-              <Input
-                id="tile-description"
-                placeholder="Short description shown on the tile"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                data-testid="input-tile-description"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Icon</Label>
-                <Select value={icon} onValueChange={setIcon}>
-                  <SelectTrigger data-testid="select-tile-icon">
+          {draft && (
+            <div className="grid gap-4 py-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="tile-url">Launch URL</Label>
+                <Input
+                  id="tile-url"
+                  type="url"
+                  placeholder="https://app.example.com"
+                  value={draft.launchUrl}
+                  onChange={(event) => updateDraft("launchUrl", event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to hide this app from the Workspace entirely.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="tile-description">Description</Label>
+                <Input
+                  id="tile-description"
+                  placeholder="Short description shown on the tile"
+                  value={draft.description}
+                  onChange={(event) => updateDraft("description", event.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tile-icon">Icon</Label>
+                <Select
+                  value={draft.icon || "none"}
+                  onValueChange={(value) => updateDraft("icon", value === "none" ? "" : value)}
+                >
+                  <SelectTrigger id="tile-icon">
                     <SelectValue placeholder="Choose an icon" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ICON_OPTIONS.map((name) => (
-                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    <SelectItem value="none">Choose an icon</SelectItem>
+                    {ICON_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="grid gap-2">
                 <Label htmlFor="tile-category">Category</Label>
                 <Input
                   id="tile-category"
-                  placeholder="e.g. Field Operations"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  data-testid="input-tile-category"
+                  placeholder="Administration"
+                  value={draft.category}
+                  onChange={(event) => updateDraft("category", event.target.value)}
                 />
               </div>
             </div>
-          </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={save} disabled={updateLaunch.isPending} data-testid="button-save-tile">
-              {updateLaunch.isPending ? "Saving…" : "Save"}
+            <Button type="button" variant="outline" onClick={closeEditor}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveTile} disabled={updateApp.isPending}>
+              {updateApp.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }

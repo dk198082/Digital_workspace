@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 function errMsg(err: unknown, fallback: string): string {
@@ -58,12 +59,24 @@ export function AddAppDialog({
   const { toast } = useToast();
   const createApp = useCreateApp();
   const [name, setName] = useState("");
+  const [launchUrl, setLaunchUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [icon, setIcon] = useState("");
+  const [category, setCategory] = useState("");
   const [resources, setResources] = useState<AppResourceDraft[]>([emptyResource()]);
 
   const handleCreate = () => {
     if (!name.trim()) {
       toast({ title: "App name is required", variant: "destructive" });
       return;
+    }
+    if (launchUrl.trim()) {
+      try {
+        new URL(launchUrl.trim());
+      } catch {
+        toast({ title: "Launch URL must be a valid web address", variant: "destructive" });
+        return;
+      }
     }
     const populatedResources = resources
       .filter((resource) => resource.name.trim())
@@ -78,13 +91,26 @@ export function AddAppDialog({
       names.add(normalized);
     }
     createApp.mutate(
-      { data: { name: name.trim(), resources: populatedResources } },
+      {
+        data: {
+          name: name.trim(),
+          launchUrl: launchUrl.trim() || null,
+          description: description.trim() || null,
+          icon: icon.trim() || null,
+          category: category.trim() || null,
+          resources: populatedResources,
+        },
+      },
       {
         onSuccess: (app) => {
           queryClient.invalidateQueries({ queryKey: getListAppsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListResourcesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListSecurityPoliciesQueryKey() });
           setName("");
+          setLaunchUrl("");
+          setDescription("");
+          setIcon("");
+          setCategory("");
           setResources([emptyResource()]);
           onOpenChange(false);
           toast({
@@ -120,6 +146,48 @@ export function AddAppDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="app-launch-url">Workspace Launch URL</Label>
+              <Input
+                id="app-launch-url"
+                type="url"
+                placeholder="https://app.example.com"
+                value={launchUrl}
+                onChange={(event) => setLaunchUrl(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave blank to keep this app hidden from the Digital Workspace.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="app-category">Workspace Category</Label>
+              <Input
+                id="app-category"
+                placeholder="e.g. Reporting"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="app-icon">Icon</Label>
+              <Input
+                id="app-icon"
+                placeholder="e.g. LayoutDashboard"
+                value={icon}
+                onChange={(event) => setIcon(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="app-description">Description</Label>
+              <Textarea
+                id="app-description"
+                placeholder="Short description shown with the Workspace tile"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
