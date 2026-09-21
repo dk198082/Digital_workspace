@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { X, ExternalLink, AlertTriangle, LayoutGrid } from "lucide-react";
+import {
+  X,
+  ExternalLink,
+  AlertTriangle,
+  LayoutGrid,
+} from "lucide-react";
 import type { SidebarApp } from "@/components/Sidebar";
 
 export interface OpenTab {
@@ -8,27 +13,12 @@ export interface OpenTab {
 
 const IFRAME_LOAD_TIMEOUT_MS = 12_000;
 
-/**
- * Marks the URL as opened inside the Workspace, so a satellite app CAN
- * detect this and hide its own redundant chrome (most commonly: its own
- * "logged in as ..." user badge, since the Sidebar already shows that).
- * This is a courtesy signal, not the primary detection mechanism — the
- * simplest and most robust check for a satellite app to use is actually
- * `window.self !== window.top` (works with zero coordination from this
- * Shell at all), documented alongside this in
- * docs/workspace/TECHNICAL_DESIGN.md, "Hiding an embedded app's own chrome".
- * This query param exists as a second, explicit signal for apps that would
- * rather check intent than infer it from being in *any* iframe.
- */
 function withEmbeddedFlag(url: string): string {
   try {
     const parsed = new URL(url);
     parsed.searchParams.set("embedded", "1");
     return parsed.toString();
   } catch {
-    // Not a valid absolute URL — fall back to the raw value rather than
-    // throwing; the iframe will simply fail to load it either way, and
-    // that failure is already handled by the load-timeout banner above.
     return url;
   }
 }
@@ -40,38 +30,21 @@ interface WorkspaceTabsProps {
   onClose: (appId: number) => void;
 }
 
-/**
- * Renders every open app as a tab, with each tab's content as a same-DOM
- * iframe kept alive (display:none, not unmounted) while inactive — so
- * switching tabs preserves the embedded app's in-page state instead of
- * reloading it from scratch, the same way real browser tabs behave.
- *
- * READ THIS BEFORE ASSUMING EVERY APP WILL EMBED CLEANLY — see
- * docs/workspace/TECHNICAL_DESIGN.md, "Embedding apps as tabs (iframe
- * design and its real limits)":
- *
- *   1. The satellite app must explicitly allow being framed by this
- *      Shell's origin (Content-Security-Policy: frame-ancestors, or by not
- *      sending X-Frame-Options: DENY/SAMEORIGIN). If it doesn't, the
- *      browser blocks the frame SILENTLY — no JS-observable error, just a
- *      blank rectangle. Cross-origin browser security deliberately
- *      prevents this Shell from detecting that from JavaScript.
- *   2. Entra ID's own login pages often refuse to render inside an iframe
- *      (anti-clickjacking) — if the embedded app's OWN session has expired
- *      and it tries to silently redirect through Entra ID to re-establish
- *      one, that redirect can fail inside the iframe even though the exact
- *      same redirect works fine in a normal browser tab.
- *   3. Because of #1 and #2, this component can only ever offer a
- *      best-effort heuristic (a load timeout — see IFRAME_LOAD_TIMEOUT_MS)
- *      and an always-visible "Open in new tab" escape hatch per tab, not a
- *      guaranteed detection of every failure mode.
- */
-export function WorkspaceTabs({ openTabs, activeAppId, onActivate, onClose }: WorkspaceTabsProps) {
+export function WorkspaceTabs({
+  openTabs,
+  activeAppId,
+  onActivate,
+  onClose,
+}: WorkspaceTabsProps) {
   if (openTabs.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <LayoutGrid className="h-8 w-8 text-white/20" />
-        <h3 className="mt-4 text-lg font-semibold text-white">Nothing open yet</h3>
+
+        <h3 className="mt-4 text-lg font-semibold text-white">
+          Nothing open yet
+        </h3>
+
         <p className="mt-1 max-w-sm text-sm text-ws-text-secondary">
           Choose an app from the menu on the left to open it here.
         </p>
@@ -92,9 +65,14 @@ export function WorkspaceTabs({ openTabs, activeAppId, onActivate, onClose }: Wo
           />
         ))}
       </div>
+
       <div className="relative flex-1 bg-white">
         {openTabs.map(({ app }) => (
-          <AppFrame key={app.id} app={app} visible={app.id === activeAppId} />
+          <AppFrame
+            key={app.id}
+            app={app}
+            visible={app.id === activeAppId}
+          />
         ))}
       </div>
     </div>
@@ -123,6 +101,7 @@ function Tab({
       }`}
     >
       <span className="truncate">{app.name}</span>
+
       <a
         href={app.launchUrl}
         target="_blank"
@@ -134,6 +113,7 @@ function Tab({
       >
         <ExternalLink className="h-3.5 w-3.5" />
       </a>
+
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -156,194 +136,239 @@ function AppFrame({
   app: SidebarApp;
   visible: boolean;
 }) {
+  const isFieldService =
+    app.name === "Field Service Calendar";
 
-  const isFieldService = app.name === "Field Service Calendar";
-  const isProductionShopFloor = app.name === "Production Shop Floor";
-  const isProductionPriority = app.name === "Production Priority Board";
-  const isPackingControl = app.name === "Packing Control Board";
+  const isProductionShopFloor =
+    app.name === "Production Shop Floor";
 
-  const [suspectedBlocked, setSuspectedBlocked] = useState(false);
+  const isProductionPriority =
+    app.name === "Production Priority Board";
+
+  const isPackingControl =
+    app.name === "Packing Control Board";
+
+  const requiresEmbeddedAuth =
+    isFieldService ||
+    isProductionShopFloor ||
+    isProductionPriority ||
+    isPackingControl;
+
+  const [suspectedBlocked, setSuspectedBlocked] =
+    useState(false);
+
   const [loaded, setLoaded] = useState(false);
+
   const [iframeVersion, setIframeVersion] = useState(0);
 
-  const [embeddedAuthReady, setEmbeddedAuthReady] = useState(
-  !isFieldService &&
-  !isProductionShopFloor &&
-  !isProductionPriority &&
-  !isPackingControl,
-  );
+  const [embeddedAuthReady, setEmbeddedAuthReady] =
+    useState(!requiresEmbeddedAuth);
 
-  const FIELD_SERVICE_ORIGIN = isFieldService
-  ? new URL(app.launchUrl).origin
-  : null;
+  const timerRef =
+    useRef<ReturnType<typeof setTimeout> | undefined>(
+      undefined,
+    );
 
-  const PRODUCTION_ORIGIN = isProductionShopFloor
-  ? new URL(app.launchUrl).origin
-  : null;
+  /*
+   * ---------------------------------------------------------
+   * App origins
+   * ---------------------------------------------------------
+   */
 
-  const PRODUCTION_PRIORITY_ORIGIN = isProductionPriority
-  ? new URL(app.launchUrl).origin
-  : null;
+  const FIELD_SERVICE_ORIGIN =
+    isFieldService
+      ? new URL(app.launchUrl).origin
+      : null;
+
+  const PRODUCTION_ORIGIN =
+    isProductionShopFloor
+      ? new URL(app.launchUrl).origin
+      : null;
+
+  const PRODUCTION_PRIORITY_ORIGIN =
+    isProductionPriority
+      ? new URL(app.launchUrl).origin
+      : null;
 
   const PACKING_CONTROL_ORIGIN =
-  isPackingControl
-    ? new URL(app.launchUrl).origin
-    : null;
-    
-  const iframeSrc =
-  isFieldService ||
-  isProductionShopFloor ||
-  isProductionPriority ||
-  isPackingControl
-    ? `${app.launchUrl}${app.launchUrl.includes("?") ? "&" : "?"}embedded=1`
+    isPackingControl
+      ? new URL(app.launchUrl).origin
+      : null;
+
+  /*
+   * ---------------------------------------------------------
+   * iframe URL
+   * ---------------------------------------------------------
+   */
+
+  const iframeSrc = requiresEmbeddedAuth
+    ? withEmbeddedFlag(app.launchUrl)
     : app.launchUrl;
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined,);
+  /*
+   * ---------------------------------------------------------
+   * iframe load timeout
+   * ---------------------------------------------------------
+   */
 
- 
- useEffect(() => {
-  if (!isFieldService && !isProductionShopFloor && !isProductionPriority && !isPackingControl) return;
-  if (!embeddedAuthReady) return;
-
-  timerRef.current = setTimeout(() => {
-    if (!loaded) {
-      setSuspectedBlocked(true);
+  useEffect(() => {
+    if (!requiresEmbeddedAuth) {
+      return;
     }
-  }, IFRAME_LOAD_TIMEOUT_MS);
 
-  return () => clearTimeout(timerRef.current);
-}, [
-  loaded,
-  embeddedAuthReady,
-  isFieldService,
-  isProductionShopFloor,
-  isProductionPriority,
-  isPackingControl,
-]);
+    if (!embeddedAuthReady) {
+      return;
+    }
 
+    clearTimeout(timerRef.current);
 
-useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      if (!loaded) {
+        setSuspectedBlocked(true);
+      }
+    }, IFRAME_LOAD_TIMEOUT_MS);
+
+    return () => {
+      clearTimeout(timerRef.current);
+    };
+  }, [
+    loaded,
+    embeddedAuthReady,
+    requiresEmbeddedAuth,
+  ]);
+
+  /*
+   * ---------------------------------------------------------
+   * Embedded SSO completion message
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (!requiresEmbeddedAuth) {
+      return;
+    }
+
     const handleMessage = (event: MessageEvent) => {
-    const isValidFieldServiceMessage =
-      isFieldService &&
-      FIELD_SERVICE_ORIGIN &&
-      event.origin === FIELD_SERVICE_ORIGIN &&
-      event.data?.type === "FIELD_SERVICE_AUTH_COMPLETE";
+      const messageType =
+        typeof event.data?.type === "string"
+          ? event.data.type
+          : "";
 
-    const isValidProductionMessage =
-      isProductionShopFloor &&
-      PRODUCTION_ORIGIN &&
-      event.origin === PRODUCTION_ORIGIN &&
-      event.data?.type === "PRODUCTION_AUTH_COMPLETE";
+      /*
+       * Field Service
+       */
+      const validFieldService =
+        isFieldService &&
+        FIELD_SERVICE_ORIGIN &&
+        event.origin === FIELD_SERVICE_ORIGIN &&
+        messageType === "FIELD_SERVICE_AUTH_COMPLETE";
 
-    const isValidProductionPriorityMessage =
-      isProductionPriority &&
-      PRODUCTION_PRIORITY_ORIGIN &&
-      event.origin === PRODUCTION_PRIORITY_ORIGIN &&
-      event.data?.type === "PRODUCTION_PRIORITY_AUTH_COMPLETE";
-      
-    const isValidPackingMessage =
-      isPackingControl &&
-      PACKING_CONTROL_ORIGIN &&
-      event.origin === PACKING_CONTROL_ORIGIN &&
-      event.data?.type ===
-        "PACKING_CONTROL_AUTH_COMPLETE";
+      /*
+       * Production Shop Floor
+       */
+      const validProduction =
+        isProductionShopFloor &&
+        PRODUCTION_ORIGIN &&
+        event.origin === PRODUCTION_ORIGIN &&
+        messageType === "PRODUCTION_AUTH_COMPLETE";
 
-    if (
-        !isValidFieldServiceMessage &&
-        !isValidProductionMessage &&
-        !isValidProductionPriorityMessage &&
-        !isValidPackingMessage
+      /*
+       * Production Priority
+       */
+      const validProductionPriority =
+        isProductionPriority &&
+        PRODUCTION_PRIORITY_ORIGIN &&
+        event.origin === PRODUCTION_PRIORITY_ORIGIN &&
+        messageType ===
+          "PRODUCTION_PRIORITY_AUTH_COMPLETE";
+
+      /*
+       * Packing Control Board
+       */
+      const validPacking =
+        isPackingControl &&
+        PACKING_CONTROL_ORIGIN &&
+        event.origin === PACKING_CONTROL_ORIGIN &&
+        messageType ===
+          "PACKING_CONTROL_AUTH_COMPLETE";
+
+      if (
+        !validFieldService &&
+        !validProduction &&
+        !validProductionPriority &&
+        !validPacking
       ) {
         return;
       }
 
+      console.log(
+        "[Workspace] Embedded authentication completed:",
+        app.name,
+      );
+
       setEmbeddedAuthReady(true);
       setLoaded(false);
       setSuspectedBlocked(false);
-      setIframeVersion((version) => version + 1);
-  };
 
-  window.addEventListener("message", handleMessage);
+      /*
+       * Force a fresh iframe after authentication.
+       */
+      setIframeVersion(
+        (version) => version + 1,
+      );
+    };
 
-  return () => {
-    window.removeEventListener("message", handleMessage);
-  };
-}, [
-  isFieldService,
-  FIELD_SERVICE_ORIGIN,
-  isProductionShopFloor,
-  PRODUCTION_ORIGIN,
-  isProductionPriority,
-  PRODUCTION_PRIORITY_ORIGIN,
-  isPackingControl,
-  PACKING_CONTROL_ORIGIN,
-]);
-
-
-async function checkFieldServiceSession(): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${app.launchUrl.replace(/\/$/, "")}/api/me`,
-      {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-      },
+    window.addEventListener(
+      "message",
+      handleMessage,
     );
 
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+    return () => {
+      window.removeEventListener(
+        "message",
+        handleMessage,
+      );
+    };
+  }, [
+    app.name,
+    isFieldService,
+    FIELD_SERVICE_ORIGIN,
+    isProductionShopFloor,
+    PRODUCTION_ORIGIN,
+    isProductionPriority,
+    PRODUCTION_PRIORITY_ORIGIN,
+    isPackingControl,
+    PACKING_CONTROL_ORIGIN,
+    requiresEmbeddedAuth,
+  ]);
 
-const startEmbeddedLogin = () => {
-    const loginUrl = `${app.launchUrl.replace(/\/$/, "")}/api/auth/login?embedded=1`;
-
-    const width = 480;
-    const height = 600;
-
-    const left =
-      window.screenX +
-      Math.max(0, (window.outerWidth - width) / 2);
-
-    const top =
-      window.screenY +
-      Math.max(0, (window.outerHeight - height) / 2);
-
-    const popup = window.open(
-      loginUrl,
-      "production-sso",
-      `width=${width},height=${height},left=${Math.round(
-        left,
-      )},top=${Math.round(
-        top,
-      )},resizable=yes,scrollbars=yes`,
-    );
-
-    if (popup) {
-      popup.focus();
-    } else {
-      window.open(loginUrl, "_blank");
-    }
-};
+  /*
+   * ---------------------------------------------------------
+   * Render
+   * ---------------------------------------------------------
+   */
 
   return (
     <div
       className="absolute inset-0"
-      style={{ display: visible ? "block" : "none" }}
+      style={{
+        display: visible ? "block" : "none",
+      }}
       data-testid={`frame-container-${app.id}`}
     >
       {suspectedBlocked && (
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           <span className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-            <strong>{app.name}</strong> is taking a while to load — it may not
-            allow opening inside the Workspace.
+
+            <strong>{app.name}</strong>
+
+            <span>
+              is taking a while to load. It may not allow
+              opening inside the Workspace.
+            </span>
           </span>
+
           <a
             href={app.launchUrl}
             target="_blank"
@@ -351,25 +376,32 @@ const startEmbeddedLogin = () => {
             className="flex shrink-0 items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100"
           >
             <ExternalLink className="h-3.5 w-3.5" />
+
             Open in new tab instead
           </a>
         </div>
       )}
+
       {embeddedAuthReady && (
-          <iframe
-            key={`${app.id}-${iframeVersion}`}
-            src={iframeSrc}
-            title={app.name}
-            className="absolute inset-0 h-full w-full border-0"
-            style={{
-              display: visible ? "block" : "none",
-            }}
-            onLoad={() => {
-              setLoaded(true);
-              setSuspectedBlocked(false);
-            }}
-          />
-        )}
+        <iframe
+          key={`${app.id}-${iframeVersion}`}
+          src={iframeSrc}
+          title={app.name}
+          className="absolute inset-0 h-full w-full border-0"
+          style={{
+            display: visible ? "block" : "none",
+          }}
+          onLoad={() => {
+            console.log(
+              "[Workspace] iframe loaded:",
+              app.name,
+            );
+
+            setLoaded(true);
+            setSuspectedBlocked(false);
+          }}
+        />
+      )}
     </div>
   );
 }
