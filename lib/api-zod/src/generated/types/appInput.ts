@@ -12,24 +12,4 @@ export interface AppInput {
      * @maxLength 100
      */
   name: string;
-  /**
-     * @maxLength 2000
-     * @nullable
-     */
-  launchUrl?: string | null;
-  /**
-     * @maxLength 500
-     * @nullable
-     */
-  description?: string | null;
-  /**
-     * @maxLength 100
-     * @nullable
-     */
-  icon?: string | null;
-  /**
-     * @maxLength 100
-     * @nullable
-     */
-  category?: string | null;
 }
