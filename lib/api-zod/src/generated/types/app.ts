@@ -9,9 +9,13 @@
 export interface App {
   id: number;
   name: string;
+  /** @nullable */
+  launchUrl: string | null;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  icon: string | null;
+  /** @nullable */
+  category: string | null;
   resourceCount: number;
-  launchUrl?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  category?: string | null;
 }
