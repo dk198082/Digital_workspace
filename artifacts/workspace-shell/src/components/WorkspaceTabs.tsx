@@ -159,14 +159,17 @@ function AppFrame({
 
   const isFieldService = app.name === "Field Service Calendar";
   const isProductionShopFloor = app.name === "Production Shop Floor";
+  const isProductionPriority = app.name === "Production Priority Board";
 
   const [suspectedBlocked, setSuspectedBlocked] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [iframeVersion, setIframeVersion] = useState(0);
 
   const [embeddedAuthReady, setEmbeddedAuthReady] = useState(
-  !isFieldService && !isProductionShopFloor,
-);
+  !isFieldService &&
+  !isProductionShopFloor &&
+  !isProductionPriority,
+  );
 
   const FIELD_SERVICE_ORIGIN = isFieldService
   ? new URL(app.launchUrl).origin
@@ -176,9 +179,15 @@ function AppFrame({
   ? new URL(app.launchUrl).origin
   : null;
 
+  const PRODUCTION_PRIORITY_ORIGIN = isProductionPriority
+  ? new URL(app.launchUrl).origin
+  : null;
+
 
   const iframeSrc =
-  isFieldService || isProductionShopFloor
+  isFieldService ||
+  isProductionShopFloor ||
+  isProductionPriority
     ? `${app.launchUrl}${app.launchUrl.includes("?") ? "&" : "?"}embedded=1`
     : app.launchUrl;
 
@@ -218,9 +227,19 @@ useEffect(() => {
       event.origin === PRODUCTION_ORIGIN &&
       event.data?.type === "PRODUCTION_AUTH_COMPLETE";
 
-    if (!isValidFieldServiceMessage && !isValidProductionMessage) {
-      return;
-    }
+    const isValidProductionPriorityMessage =
+      isProductionPriority &&
+      PRODUCTION_PRIORITY_ORIGIN &&
+      event.origin === PRODUCTION_PRIORITY_ORIGIN &&
+      event.data?.type === "PRODUCTION_PRIORITY_AUTH_COMPLETE";
+
+    if (
+        !isValidFieldServiceMessage &&
+        !isValidProductionMessage &&
+        !isValidProductionPriorityMessage
+      ) {
+        return;
+      }
 
       setEmbeddedAuthReady(true);
       setLoaded(false);
@@ -238,6 +257,8 @@ useEffect(() => {
   FIELD_SERVICE_ORIGIN,
   isProductionShopFloor,
   PRODUCTION_ORIGIN,
+  isProductionPriority,
+  PRODUCTION_PRIORITY_ORIGIN,
 ]);
 
 

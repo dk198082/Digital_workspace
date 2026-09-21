@@ -45,6 +45,7 @@ export function Workspace({ user }: { user: AuthUser }) {
     
   const isFieldService = app.name === "Field Service Calendar";
   const isProductionShopFloor = app.name === "Production Shop Floor";
+  const isProductionPriority = app.name === "Production Priority Board";
 
   setOpenTabs((prev) => {
     // If the tab is already open, just activate it.
@@ -53,8 +54,8 @@ export function Workspace({ user }: { user: AuthUser }) {
     }
 
     // Start Field Service SSO directly from the user's click.
-    if (isFieldService || isProductionShopFloor) {
-      const loginPath = isFieldService
+    if (isFieldService || isProductionShopFloor || isProductionPriority) {
+        const loginPath = isFieldService
         ? "/api/login?embedded=1"
         : "/api/auth/login?embedded=1";
 
