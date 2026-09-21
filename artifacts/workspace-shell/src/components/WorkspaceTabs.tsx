@@ -195,7 +195,7 @@ function AppFrame({
 
  
  useEffect(() => {
-  if (!isFieldService && !isProductionShopFloor) return;
+  if (!isFieldService && !isProductionShopFloor && !isProductionPriority) return;
   if (!embeddedAuthReady) return;
 
   timerRef.current = setTimeout(() => {
@@ -210,6 +210,7 @@ function AppFrame({
   embeddedAuthReady,
   isFieldService,
   isProductionShopFloor,
+  isProductionPriority,
 ]);
 
 
