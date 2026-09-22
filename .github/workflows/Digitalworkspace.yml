@@ -1,4 +1,4 @@
-name: AdminConsole Production
+name: Digitalworkspace Production
 
 on:
   push:
@@ -10,16 +10,18 @@ permissions:
   contents: read
 
 env:
-  AZURE_WEBAPP_NAME: AdminConsole
-  REGISTRY: adminconsoleprod.azurecr.io
-  IMAGE_NAME: adminconsole
+  AZURE_WEBAPP_NAME: Digitalworkspace
+  RESOURCE_GROUP: TOAXRGP
+  REGISTRY: digitalworkspaceprod.azurecr.io
+  ACR_NAME: Digitalworkspaceprod
+  IMAGE_NAME: digitalworkspace
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Azure Login
@@ -31,7 +33,7 @@ jobs:
 
       - name: Login to Azure Container Registry
         run: |
-          az acr login --name adminconsoleprod
+          az acr login --name $ACR_NAME
 
       - name: Build Docker image
         run: |
@@ -45,12 +47,16 @@ jobs:
           docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
           docker push $REGISTRY/$IMAGE_NAME:latest
 
-      - name: Deploy container to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Azure Logout
+      - name: Configure Web App Container
         run: |
-          az logout
+          az webapp config container set \
+            --resource-group $RESOURCE_GROUP \
+            --name $AZURE_WEBAPP_NAME \
+            --container-image-name $REGISTRY/$IMAGE_NAME:latest \
+            --container-registry-url https://$REGISTRY
+
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --resource-group $RESOURCE_GROUP \
+            --name $AZURE_WEBAPP_NAME
