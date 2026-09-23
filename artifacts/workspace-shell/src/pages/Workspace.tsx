@@ -44,98 +44,114 @@ export function Workspace({ user }: { user: AuthUser }) {
   const [activeAppId, setActiveAppId] = useState<number | null>(null);
 
   const openApp = useCallback((app: SidebarApp) => {
-    const isFieldService =
-      app.name === "Field Service Calendar";
+  const isFieldService =
+    app.name === "Field Service Calendar";
 
-    const isProductionShopFloor =
-      app.name === "Production Shop Floor";
+  const isProductionShopFloor =
+    app.name === "Production Shop Floor";
 
-    const isProductionPriority =
-      app.name === "Production Priority Board";
+  const isProductionPriority =
+    app.name === "Production Priority Board";
 
-    const isPackingControl =
-      app.name === "Packing Control Board";
+  const isPackingControl =
+    app.name === "Packing Control Board";
 
-    const isAdminConsole =
-      app.name === "Admin Console";
+  const isAdminConsole =
+    app.name === "Admin Console";
 
-    setOpenTabs((prev) => {
-      // If the tab is already open, just activate it.
-      if (prev.some((t) => t.app.id === app.id)) {
-        return prev;
-      }
+  const requiresEmbeddedSSO =
+    isFieldService ||
+    isProductionShopFloor ||
+    isProductionPriority ||
+    isPackingControl ||
+    isAdminConsole;
 
-      // Apps that require their own Microsoft/Admin Console SSO flow.
-      const requiresEmbeddedSSO =
-            isFieldService ||
-            isProductionShopFloor ||
-            isProductionPriority ||
-            isPackingControl ||
-            isAdminConsole;
-
-      if (requiresEmbeddedSSO) {
-          const loginPath = isFieldService
-            ? "/api/login?embedded=1"
-            : "/api/auth/login?embedded=1";
-
-        const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
-
-        const popupWidth = 480;
-        const popupHeight = 600;
-
-        const left = Math.max(
-          0,
-          Math.round(
-            (window.screen.availWidth - popupWidth) / 2,
-          ),
-        );
-
-        const top = Math.max(
-          0,
-          Math.round(
-            (window.screen.availHeight - popupHeight) / 2,
-          ),
-        );
-
-        // Give each application its own popup name.
-        let popupName = "workspace-sso";
-
-          if (isFieldService) {
-            popupName = "fieldservice-sso";
-          } else if (isProductionShopFloor) {
-            popupName = "production-shop-floor-sso";
-          } else if (isProductionPriority) {
-            popupName = "production-priority-sso";
-          } else if (isPackingControl) {
-            popupName = "packing-control-sso";
-          } else if (isAdminConsole) {
-            popupName = "admin-console-sso";
-          }
-
-        const popup = window.open(
-          loginUrl,
-          popupName,
-          [
-            `width=${popupWidth}`,
-            `height=${popupHeight}`,
-            `left=${left}`,
-            `top=${top}`,
-            "resizable=yes",
-            "scrollbars=yes",
-          ].join(","),
-        );
-
-        if (popup) {
-          popup.focus();
-        }
-      }
-
-      return [...prev, { app }];
-    });
-
+  // If the tab is already open, just activate it.
+  if (openTabs.some((t) => t.app.id === app.id)) {
     setActiveAppId(app.id);
-  }, []);
+    return;
+  }
 
+  // Open the tab first.
+  setOpenTabs((prev) => [...prev, { app }]);
+  setActiveAppId(app.id);
+
+  // Start SSO outside the state updater.
+  if (!requiresEmbeddedSSO) {
+    return;
+  }
+
+  const loginPath = isFieldService
+    ? "/api/login?embedded=1"
+    : "/api/auth/login?embedded=1";
+
+  const loginUrl =
+    `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
+
+  const popupWidth = 480;
+  const popupHeight = 600;
+
+  const left = Math.max(
+    0,
+    Math.round(
+      (window.screen.availWidth - popupWidth) / 2,
+    ),
+  );
+
+  const top = Math.max(
+    0,
+    Math.round(
+      (window.screen.availHeight - popupHeight) / 2,
+    ),
+  );
+
+  let popupName = "workspace-sso";
+
+  if (isFieldService) {
+    popupName = "fieldservice-sso";
+  } else if (isProductionShopFloor) {
+    popupName = "production-shop-floor-sso";
+  } else if (isProductionPriority) {
+    popupName = "production-priority-sso";
+  } else if (isPackingControl) {
+    popupName = "packing-control-sso";
+  } else if (isAdminConsole) {
+    popupName = "admin-console-sso";
+  }
+
+  console.log(
+    "[Workspace] Starting embedded SSO:",
+    {
+      app: app.name,
+      loginUrl,
+      popupName,
+      launchUrl: app.launchUrl,
+    },
+  );
+
+  const popup = window.open(
+    loginUrl,
+    popupName,
+    [
+      `width=${popupWidth}`,
+      `height=${popupHeight}`,
+      `left=${left}`,
+      `top=${top}`,
+      "resizable=yes",
+      "scrollbars=yes",
+    ].join(","),
+  );
+
+  if (popup) {
+    popup.focus();
+  } else {
+    console.error(
+      "[Workspace] Failed to open SSO popup:",
+      app.name,
+    );
+  }
+}, [openTabs]);
+  
   const closeTab = useCallback(
     (appId: number) => {
       setOpenTabs((prev) => {
