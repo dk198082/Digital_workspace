@@ -56,6 +56,9 @@ export function Workspace({ user }: { user: AuthUser }) {
     const isPackingControl =
       app.name === "Packing Control Board";
 
+    const isAdminConsole =
+      app.name === "Admin Console";
+
     setOpenTabs((prev) => {
       // If the tab is already open, just activate it.
       if (prev.some((t) => t.app.id === app.id)) {
@@ -64,15 +67,16 @@ export function Workspace({ user }: { user: AuthUser }) {
 
       // Apps that require their own Microsoft/Admin Console SSO flow.
       const requiresEmbeddedSSO =
-        isFieldService ||
-        isProductionShopFloor ||
-        isProductionPriority ||
-        isPackingControl;
+            isFieldService ||
+            isProductionShopFloor ||
+            isProductionPriority ||
+            isPackingControl ||
+            isAdminConsole;
 
       if (requiresEmbeddedSSO) {
-        const loginPath = isFieldService
-          ? "/api/login?embedded=1"
-          : "/api/auth/login?embedded=1";
+          const loginPath = isFieldService
+            ? "/api/login?embedded=1"
+            : "/api/auth/login?embedded=1";
 
         const loginUrl = `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
 
@@ -96,15 +100,17 @@ export function Workspace({ user }: { user: AuthUser }) {
         // Give each application its own popup name.
         let popupName = "workspace-sso";
 
-        if (isFieldService) {
-          popupName = "fieldservice-sso";
-        } else if (isProductionShopFloor) {
-          popupName = "production-shop-floor-sso";
-        } else if (isProductionPriority) {
-          popupName = "production-priority-sso";
-        } else if (isPackingControl) {
-          popupName = "packing-control-sso";
-        }
+          if (isFieldService) {
+            popupName = "fieldservice-sso";
+          } else if (isProductionShopFloor) {
+            popupName = "production-shop-floor-sso";
+          } else if (isProductionPriority) {
+            popupName = "production-priority-sso";
+          } else if (isPackingControl) {
+            popupName = "packing-control-sso";
+          } else if (isAdminConsole) {
+            popupName = "admin-console-sso";
+          }
 
         const popup = window.open(
           loginUrl,

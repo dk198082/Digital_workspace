@@ -148,11 +148,15 @@ function AppFrame({
   const isPackingControl =
     app.name === "Packing Control Board";
 
+  const isAdminConsole =
+    app.name === "Admin Console";
+
   const requiresEmbeddedAuth =
-    isFieldService ||
-    isProductionShopFloor ||
-    isProductionPriority ||
-    isPackingControl;
+      isFieldService ||
+      isProductionShopFloor ||
+      isProductionPriority ||
+      isPackingControl ||
+      isAdminConsole;
 
   const [suspectedBlocked, setSuspectedBlocked] =
     useState(false);
@@ -192,6 +196,11 @@ function AppFrame({
 
   const PACKING_CONTROL_ORIGIN =
     isPackingControl
+      ? new URL(app.launchUrl).origin
+      : null;
+
+  const ADMIN_CONSOLE_ORIGIN =
+    isAdminConsole
       ? new URL(app.launchUrl).origin
       : null;
 
@@ -292,11 +301,18 @@ function AppFrame({
         messageType ===
           "PACKING_CONTROL_AUTH_COMPLETE";
 
+      const ValidAdminConsole =
+        isAdminConsole &&
+        ADMIN_CONSOLE_ORIGIN &&
+        event.origin === ADMIN_CONSOLE_ORIGIN &&
+        event.data?.type === "ADMIN_CONSOLE_AUTH_COMPLETE";
+
       if (
         !validFieldService &&
         !validProduction &&
         !validProductionPriority &&
-        !validPacking
+        !validPacking && 
+        !ValidAdminConsole
       ) {
         return;
       }
@@ -313,8 +329,7 @@ function AppFrame({
       /*
        * Force a fresh iframe after authentication.
        */
-      setIframeVersion(
-        (version) => version + 1,
+      setIframeVersion((version) => version + 1,
       );
     };
 
@@ -339,6 +354,8 @@ function AppFrame({
     PRODUCTION_PRIORITY_ORIGIN,
     isPackingControl,
     PACKING_CONTROL_ORIGIN,
+    isAdminConsole,
+    ADMIN_CONSOLE_ORIGIN,
     requiresEmbeddedAuth,
   ]);
 
