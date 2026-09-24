@@ -56,6 +56,10 @@ function getEmbeddedSsoStartUrl(
 
     "Production Shop Floor":
       "productionShopFloor",
+
+    "Field Service Calendar":
+      "fieldService",
+
   };
 
   const target =

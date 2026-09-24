@@ -244,6 +244,14 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
           process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() ||
           "",
       },
+
+      fieldService: {
+        audience: "field-service-calendar",
+        callbackUrl:
+          process.env.FIELD_SERVICE_FRONTEND_URL?.trim() ||
+          "",
+      },
+      
     };
 
     const config = targetConfigs[target];
