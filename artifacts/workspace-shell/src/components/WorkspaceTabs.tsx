@@ -60,6 +60,9 @@ function getEmbeddedSsoStartUrl(
     "Field Service Calendar":
       "fieldService",
 
+    "Admin Console": 
+        "adminConsole",
+
   };
 
   const target =

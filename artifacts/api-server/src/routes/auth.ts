@@ -251,7 +251,13 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
           process.env.FIELD_SERVICE_FRONTEND_URL?.trim() ||
           "",
       },
-      
+
+      adminConsole: {
+        audience: "admin-console",
+        callbackUrl:
+          process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
+      },
+
     };
 
     const config = targetConfigs[target];
