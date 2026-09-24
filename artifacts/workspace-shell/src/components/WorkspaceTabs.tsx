@@ -152,21 +152,26 @@ function AppFrame({
     app.name === "Admin Console";
 
   const requiresEmbeddedAuth =
-      isFieldService ||
-      isProductionShopFloor ||
-      isProductionPriority ||
-      isPackingControl ||
-      isAdminConsole;
+    isFieldService ||
+    isProductionShopFloor ||
+    isProductionPriority ||
+    isPackingControl ||
+    isAdminConsole;
 
   const [suspectedBlocked, setSuspectedBlocked] =
     useState(false);
 
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] =
+    useState(false);
 
-  const [iframeVersion, setIframeVersion] = useState(0);
+  const [iframeVersion, setIframeVersion] =
+    useState(0);
 
+  // IMPORTANT:
+  // The iframe loads immediately.
+  // There is no popup and no separate login window.
   const [embeddedAuthReady, setEmbeddedAuthReady] =
-    useState(!requiresEmbeddedAuth);
+    useState(true);
 
   const timerRef =
     useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -210,9 +215,10 @@ function AppFrame({
    * ---------------------------------------------------------
    */
 
-  const iframeSrc = requiresEmbeddedAuth
-    ? withEmbeddedFlag(app.launchUrl)
-    : app.launchUrl;
+  const iframeSrc =
+    requiresEmbeddedAuth
+      ? withEmbeddedFlag(app.launchUrl)
+      : app.launchUrl;
 
   /*
    * ---------------------------------------------------------
@@ -301,18 +307,22 @@ function AppFrame({
         messageType ===
           "PACKING_CONTROL_AUTH_COMPLETE";
 
-      const ValidAdminConsole =
+      /*
+       * Admin Console
+       */
+      const validAdminConsole =
         isAdminConsole &&
         ADMIN_CONSOLE_ORIGIN &&
         event.origin === ADMIN_CONSOLE_ORIGIN &&
-        event.data?.type === "ADMIN_CONSOLE_AUTH_COMPLETE";
+        messageType ===
+          "ADMIN_CONSOLE_AUTH_COMPLETE";
 
       if (
         !validFieldService &&
         !validProduction &&
         !validProductionPriority &&
-        !validPacking && 
-        !ValidAdminConsole
+        !validPacking &&
+        !validAdminConsole
       ) {
         return;
       }
@@ -329,7 +339,8 @@ function AppFrame({
       /*
        * Force a fresh iframe after authentication.
        */
-      setIframeVersion((version) => version + 1,
+      setIframeVersion(
+        (version) => version + 1,
       );
     };
 

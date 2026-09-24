@@ -2,7 +2,10 @@ import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LayoutGrid } from "lucide-react";
 import { Sidebar, type SidebarApp } from "@/components/Sidebar";
-import { WorkspaceTabs, type OpenTab } from "@/components/WorkspaceTabs";
+import {
+  WorkspaceTabs,
+  type OpenTab,
+} from "@/components/WorkspaceTabs";
 import type { AuthUser } from "@/App";
 
 interface MyAppsResponse {
@@ -41,117 +44,25 @@ export function Workspace({ user }: { user: AuthUser }) {
   const { data, isLoading, isError } = useMyApps();
 
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
-  const [activeAppId, setActiveAppId] = useState<number | null>(null);
+  const [activeAppId, setActiveAppId] =
+    useState<number | null>(null);
 
   const openApp = useCallback((app: SidebarApp) => {
-  const isFieldService =
-    app.name === "Field Service Calendar";
+    // If the tab is already open, just activate it.
+    if (openTabs.some((t) => t.app.id === app.id)) {
+      setActiveAppId(app.id);
+      return;
+    }
 
-  const isProductionShopFloor =
-    app.name === "Production Shop Floor";
+    // Open the app inside WorkspaceTabs / iframe.
+    setOpenTabs((prev) => [
+      ...prev,
+      { app },
+    ]);
 
-  const isProductionPriority =
-    app.name === "Production Priority Board";
-
-  const isPackingControl =
-    app.name === "Packing Control Board";
-
-  const isAdminConsole =
-    app.name === "Admin Console";
-
-  const requiresEmbeddedSSO =
-    isFieldService ||
-    isProductionShopFloor ||
-    isProductionPriority ||
-    isPackingControl ||
-    isAdminConsole;
-
-  // If the tab is already open, just activate it.
-  if (openTabs.some((t) => t.app.id === app.id)) {
     setActiveAppId(app.id);
-    return;
-  }
+  }, [openTabs]);
 
-  // Open the tab first.
-  setOpenTabs((prev) => [...prev, { app }]);
-  setActiveAppId(app.id);
-
-  // Start SSO outside the state updater.
-  if (!requiresEmbeddedSSO) {
-    return;
-  }
-
-  const loginPath = isFieldService
-    ? "/api/login?embedded=1"
-    : "/api/auth/login?embedded=1";
-
-  const loginUrl =
-    `${app.launchUrl.replace(/\/$/, "")}${loginPath}`;
-
-  const popupWidth = 480;
-  const popupHeight = 600;
-
-  const left = Math.max(
-    0,
-    Math.round(
-      (window.screen.availWidth - popupWidth) / 2,
-    ),
-  );
-
-  const top = Math.max(
-    0,
-    Math.round(
-      (window.screen.availHeight - popupHeight) / 2,
-    ),
-  );
-
-  let popupName = "workspace-sso";
-
-  if (isFieldService) {
-    popupName = "fieldservice-sso";
-  } else if (isProductionShopFloor) {
-    popupName = "production-shop-floor-sso";
-  } else if (isProductionPriority) {
-    popupName = "production-priority-sso";
-  } else if (isPackingControl) {
-    popupName = "packing-control-sso";
-  } else if (isAdminConsole) {
-    popupName = "admin-console-sso";
-  }
-
-  console.log(
-    "[Workspace] Starting embedded SSO:",
-    {
-      app: app.name,
-      loginUrl,
-      popupName,
-      launchUrl: app.launchUrl,
-    },
-  );
-
-  const popup = window.open(
-    loginUrl,
-    popupName,
-    [
-      `width=${popupWidth}`,
-      `height=${popupHeight}`,
-      `left=${left}`,
-      `top=${top}`,
-      "resizable=yes",
-      "scrollbars=yes",
-    ].join(","),
-  );
-
-  if (popup) {
-    popup.focus();
-  } else {
-    console.error(
-      "[Workspace] Failed to open SSO popup:",
-      app.name,
-    );
-  }
-}, [openTabs]);
-  
   const closeTab = useCallback(
     (appId: number) => {
       setOpenTabs((prev) => {
@@ -173,7 +84,8 @@ export function Workspace({ user }: { user: AuthUser }) {
     [activeAppId],
   );
 
-  const userName = data?.userName ?? user.name;
+  const userName =
+    data?.userName ?? user.name;
 
   return (
     <div className="flex h-[100dvh] bg-ws-bg">
