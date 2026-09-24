@@ -41,27 +41,46 @@ function getEmbeddedSsoUrl(app: SidebarApp): string {
   return withEmbeddedFlag(app.launchUrl);
 }
 
-function getEmbeddedSsoStartUrl(app: SidebarApp): string {
-  if (app.name === "Packing Control Board") {
-    const url = new URL(
+function getEmbeddedSsoStartUrl(
+  app: SidebarApp,
+): string {
+  const targetMap: Record<
+    string,
+    string
+  > = {
+    "Packing Control Board":
+      "packing",
+
+    "Production Priority Board":
+      "productionPriority",
+  };
+
+  const target =
+    targetMap[app.name];
+
+  if (!target) {
+    return withEmbeddedFlag(
+      app.launchUrl,
+    );
+  }
+
+  const url =
+    new URL(
       "/api/auth/embedded-handoff",
       window.location.origin,
     );
 
-    url.searchParams.set(
-      "target",
-      "packing",
-    );
+  url.searchParams.set(
+    "target",
+    target,
+  );
 
-    url.searchParams.set(
-      "returnTo",
-      "/",
-    );
+  url.searchParams.set(
+    "returnTo",
+    "/",
+  );
 
-    return url.toString();
-  }
-
-  return withEmbeddedFlag(app.launchUrl);
+  return url.toString();
 }
 interface WorkspaceTabsProps {
   openTabs: OpenTab[];
