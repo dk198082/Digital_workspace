@@ -23,6 +23,46 @@ function withEmbeddedFlag(url: string): string {
   }
 }
 
+function getEmbeddedSsoUrl(app: SidebarApp): string {
+  const url = new URL(app.launchUrl);
+
+  if (app.name === "Packing Control Board") {
+    url.pathname = "/api/auth/embedded-sso";
+    url.search = "";
+
+    url.searchParams.set(
+      "workspaceOrigin",
+      window.location.origin,
+    );
+
+    return url.toString();
+  }
+
+  return withEmbeddedFlag(app.launchUrl);
+}
+
+function getEmbeddedSsoStartUrl(app: SidebarApp): string {
+  if (app.name === "Packing Control Board") {
+    const url = new URL(
+      "/api/auth/embedded-handoff",
+      window.location.origin,
+    );
+
+    url.searchParams.set(
+      "target",
+      "packing",
+    );
+
+    url.searchParams.set(
+      "returnTo",
+      "/",
+    );
+
+    return url.toString();
+  }
+
+  return withEmbeddedFlag(app.launchUrl);
+}
 interface WorkspaceTabsProps {
   openTabs: OpenTab[];
   activeAppId: number | null;
@@ -215,10 +255,9 @@ function AppFrame({
    * ---------------------------------------------------------
    */
 
-  const iframeSrc =
-    requiresEmbeddedAuth
-      ? withEmbeddedFlag(app.launchUrl)
-      : app.launchUrl;
+  const iframeSrc = requiresEmbeddedAuth
+        ? getEmbeddedSsoStartUrl(app)
+        : app.launchUrl;
 
   /*
    * ---------------------------------------------------------

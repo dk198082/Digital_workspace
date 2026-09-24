@@ -11,6 +11,9 @@ import {
 } from "@workspace/db";
 import { getOidcConfig, getRedirectUri } from "../lib/oidc";
 import { logAudit } from "../lib/audit";
+import {
+  createEmbeddedSsoToken,
+} from "../lib/embedded-sso";
 
 const router: IRouter = Router();
 
@@ -203,6 +206,70 @@ router.get("/auth/me", (req, res) => {
   }
   res.json(req.session.user);
 });
+
+router.get("/auth/embedded-handoff", async (req, res, next) => {
+  try {
+    const user = req.session.user;
+
+    if (!user) {
+      res.status(401).send("Workspace authentication required.");
+      return;
+    }
+
+    const target = String(req.query.target ?? "").trim();
+    const returnTo = String(req.query.returnTo ?? "/").trim();
+
+    const targetConfigs: Record<
+      string,
+      {
+        audience: string;
+        callbackUrl: string;
+      }
+    > = {
+      packing: {
+        audience: "packing-control-board",
+        callbackUrl:
+          process.env.PACKING_CONTROL_FRONTEND_URL?.trim() || "",
+      },
+
+      productionPriority: {
+        audience: "production-priority-board",
+        callbackUrl:
+          process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
+      },
+    };
+
+    const config = targetConfigs[target];
+
+    if (!config || !config.callbackUrl) {
+      res.status(400).send("Invalid embedded application.");
+      return;
+    }
+
+    const token = createEmbeddedSsoToken({
+      audience: config.audience,
+      entraObjectId: user.entraObjectId,
+      email: user.email,
+      name: user.name,
+    });
+
+    const callbackUrl = new URL(
+      "/api/auth/embedded-sso",
+      config.callbackUrl,
+    );
+
+    callbackUrl.searchParams.set("token", token);
+    callbackUrl.searchParams.set(
+      "returnTo",
+      returnTo.startsWith("/") ? returnTo : "/",
+    );
+
+    res.redirect(callbackUrl.toString());
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 router.post("/auth/logout", async (req, res) => {
   const name = req.session.user?.name;
