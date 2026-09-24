@@ -237,6 +237,13 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
         callbackUrl:
           process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
       },
+
+      productionShopFloor: {
+        audience: "production-shop-floor",
+        callbackUrl:
+          process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() ||
+          "",
+      },
     };
 
     const config = targetConfigs[target];

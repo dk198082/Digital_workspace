@@ -53,6 +53,9 @@ function getEmbeddedSsoStartUrl(
 
     "Production Priority Board":
       "productionPriority",
+
+    "Production Shop Floor":
+      "productionShopFloor",
   };
 
   const target =
