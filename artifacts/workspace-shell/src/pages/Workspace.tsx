@@ -119,7 +119,11 @@ export function Workspace({ user }: { user: AuthUser }) {
           activeAppId={activeAppId}
           onActivate={setActiveAppId}
           onClose={closeTab}
-        />
+          onCloseAll={() => {
+              setOpenTabs([]);
+            setActiveAppId(null);
+          }}
+          />
       )}
     </div>
   );

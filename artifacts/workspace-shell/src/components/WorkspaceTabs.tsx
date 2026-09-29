@@ -97,6 +97,7 @@ interface WorkspaceTabsProps {
   activeAppId: number | null;
   onActivate: (appId: number) => void;
   onClose: (appId: number) => void;
+  onCloseAll: () => void;
 }
 
 export function WorkspaceTabs({
@@ -104,6 +105,7 @@ export function WorkspaceTabs({
   activeAppId,
   onActivate,
   onClose,
+  onCloseAll,
 }: WorkspaceTabsProps) {
   if (openTabs.length === 0) {
     return (
@@ -123,6 +125,17 @@ export function WorkspaceTabs({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+          {openTabs.length > 0 && (
+          <div className="absolute right-3 top-3">
+              <button
+                type="button"
+                onClick={onCloseAll}
+                className="flex items-center gap-1.5 rounded-md border border-white/15 bg-black/60 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-red-500/20 hover:text-red-200"
+                title="Close all apps">
+                <X className="h-4 w-4" />Close All
+              </button>
+          </div>
+         )}
       <div className="flex items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-ws-bg px-2">
         {openTabs.map(({ app }) => (
           <Tab
