@@ -126,7 +126,7 @@ export function WorkspaceTabs({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
           {openTabs.length > 0 && (
-          <div className="absolute right-3 top-3">
+          <div className="absolute right-0 top-3">
               <button
                 type="button"
                 onClick={onCloseAll}
