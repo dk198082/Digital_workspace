@@ -87,6 +87,8 @@ export function Workspace({ user }: { user: AuthUser }) {
   const userName =
     data?.userName ?? user.name;
 
+  //const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-[100dvh] bg-ws-bg">
       {isLoading ? (
