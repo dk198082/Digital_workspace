@@ -129,6 +129,7 @@ return (
           <div className="px-3 py-6 text-center text-sm text-ws-text-secondary/70">No apps found.</div>
         )}
       </div>
+      
        {/* Administration + User + Sign-out footer */}
         <div className="shrink-0 border-t border-white/10 p-3">
           {/* Administration */}
@@ -150,10 +151,8 @@ return (
                     ) : (
                       <ChevronDown className="h-3.5 w-3.5" />
                     )}
-
                     Administration
                   </button>
-
                   {!isAdminCollapsed && (
                     <div className="mt-0.5 space-y-0.5">
                       {adminApps.map((app) => {
