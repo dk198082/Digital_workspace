@@ -31,30 +31,33 @@ export function Sidebar({ apps, activeAppId, onSelect, userName, onSignOut }: Si
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const grouped = useMemo(() => {
-    const filtered = apps.filter((a) =>
-      a.name.toLowerCase().includes(search.trim().toLowerCase()),
+const grouped = useMemo(() => {
+   const filtered = apps.filter(
+      (a) =>
+        a.category?.trim() !== "Administration" &&
+        a.name.toLowerCase().includes(search.trim().toLowerCase()),
     );
-    const byCategory = new Map<string, SidebarApp[]>();
-    for (const app of filtered) {
-      const key = app.category?.trim() || "Apps";
-      const list = byCategory.get(key) ?? [];
-      list.push(app);
-      byCategory.set(key, list);
-    }
-    return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [apps, search]);
+const byCategory = new Map<string, SidebarApp[]>();
+  for (const app of filtered) {
+    const key = app.category?.trim() || "Apps";
+    const list = byCategory.get(key) ?? [];
+    list.push(app);
+    byCategory.set(key, list);
+  }
+return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
+}, [apps, search]);
 
-  const toggle = (category: string) => {
+
+const toggle = (category: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
       else next.add(category);
       return next;
     });
-  };
+};
 
-  return (
+return (
     <nav className="flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-ws-bg">
       {/* Compact brand header — replaces the old full-width top bar. */}
       <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5">
@@ -126,25 +129,91 @@ export function Sidebar({ apps, activeAppId, onSelect, userName, onSignOut }: Si
           <div className="px-3 py-6 text-center text-sm text-ws-text-secondary/70">No apps found.</div>
         )}
       </div>
+       {/* Administration + User + Sign-out footer */}
+        <div className="shrink-0 border-t border-white/10 p-3">
+          {/* Administration */}
+            {(() => {
+              const adminApps = apps.filter(
+                (app) => app.category?.trim() === "Administration",
+              );
+              if (adminApps.length === 0) return null;
+              const isAdminCollapsed = collapsed.has("Administration");
+              return (
+                <div className="mb-2">
+                  <button
+                    onClick={() => toggle("Administration")}
+                    data-testid="heading-category-Administration"
+                    className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-base font-semibold text-ws-text-secondary hover:bg-white/5"
+                  >
+                    {isAdminCollapsed ? (
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
 
-      {/* User + sign-out footer — where the old top-right header content moved to. */}
-      <div className="shrink-0 border-t border-white/10 p-3">
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-white" data-testid="text-user-name">
-              {userName}
+                    Administration
+                  </button>
+
+                  {!isAdminCollapsed && (
+                    <div className="mt-0.5 space-y-0.5">
+                      {adminApps.map((app) => {
+                        const Icon = resolveIcon(app.icon);
+                        const active = app.id === activeAppId;
+
+                        return (
+                          <button
+                            key={app.id}
+                            onClick={() => onSelect(app)}
+                            data-testid={`menu-item-app-${app.id}`}
+                            title={app.description ?? undefined}
+                            className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition ${
+                              active
+                                ? "bg-ws-accent/15 font-medium text-ws-accent"
+                                : "text-white/85 hover:bg-white/5"
+                            }`}
+                          >
+                            <Icon
+                              className={`h-4 w-4 shrink-0 ${
+                                active
+                                  ? "text-ws-accent"
+                                  : "text-ws-text-secondary"
+                              }`}
+                            />
+
+                            <span className="truncate">
+                              {app.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Separate line */}
+            <div className="my-2 border-t border-white/10" />
+            {/* User + Sign out */}
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div
+                  className="truncate text-sm font-medium text-white"
+                  data-testid="text-user-name"
+                >
+                  {userName}
+                </div>
+              </div>
+              <button
+                onClick={onSignOut}
+                title="Sign out"
+                data-testid="button-sign-out"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/15 px-2 py-1.5 text-xs text-ws-text-secondary hover:bg-white/10 hover:text-white"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </button>
             </div>
-          </div>
-          <button
-            onClick={onSignOut}
-            title="Sign out"
-            data-testid="button-sign-out"
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/15 px-2 py-1.5 text-xs text-ws-text-secondary hover:bg-white/10 hover:text-white"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Sign out
-          </button>
-        </div>
       </div>
     </nav>
   );
