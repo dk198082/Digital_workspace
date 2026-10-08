@@ -60,6 +60,9 @@ function getEmbeddedSsoStartUrl(
     "Field Service Calendar":
       "fieldService",
 
+    "Pro Forma Service Invoice": 
+        "proForma",
+
     "Admin Console": 
         "adminConsole",
 

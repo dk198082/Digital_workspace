@@ -220,45 +220,55 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
     const returnTo = String(req.query.returnTo ?? "/").trim();
 
     const targetConfigs: Record<
-      string,
-      {
-        audience: string;
-        callbackUrl: string;
-      }
-    > = {
-      packing: {
-        audience: "packing-control-board",
-        callbackUrl:
-          process.env.PACKING_CONTROL_FRONTEND_URL?.trim() || "",
-      },
+          string,
+          {
+            audience: string;
+            callbackUrl: string;
+            ssoPath: string;
+          }
+        > = {
+          packing: {
+            audience: "packing-control-board",
+            callbackUrl:
+              process.env.PACKING_CONTROL_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso",
+          },
 
-      productionPriority: {
-        audience: "production-priority-board",
-        callbackUrl:
-          process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
-      },
+          productionPriority: {
+            audience: "production-priority-board",
+            callbackUrl:
+              process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso",
+          },
 
-      productionShopFloor: {
-        audience: "production-shop-floor",
-        callbackUrl:
-          process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() ||
-          "",
-      },
+          productionShopFloor: {
+            audience: "production-shop-floor",
+            callbackUrl:
+              process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso",
+          },
 
-      fieldService: {
-        audience: "field-service-calendar",
-        callbackUrl:
-          process.env.FIELD_SERVICE_FRONTEND_URL?.trim() ||
-          "",
-      },
+          fieldService: {
+            audience: "field-service-calendar",
+            callbackUrl:
+              process.env.FIELD_SERVICE_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso",
+          },
 
-      adminConsole: {
-        audience: "admin-console",
-        callbackUrl:
-          process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
-      },
+          proForma: {
+            audience: "pro-forma-service-invoice",
+            callbackUrl:
+              process.env.FIELD_SERVICE_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso-proforma",
+          },
 
-    };
+          adminConsole: {
+            audience: "admin-console",
+            callbackUrl:
+              process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
+            ssoPath: "/api/auth/embedded-sso",
+          },
+        };
 
     const config = targetConfigs[target];
 
@@ -275,7 +285,7 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
     });
 
     const callbackUrl = new URL(
-      "/api/auth/embedded-sso",
+      config.ssoPath,
       config.callbackUrl,
     );
 
