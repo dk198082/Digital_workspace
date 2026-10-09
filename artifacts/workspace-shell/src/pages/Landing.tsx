@@ -21,10 +21,10 @@ function MicrosoftLogo() {
 }
 
 const points = [
-  { icon: LayoutGrid, title: "One workspace", text: "Every app you're entitled to, in one place." },
-  { icon: ShieldCheck, title: "Single sign-on", text: "Sign in once with your Microsoft account." },
-  { icon: KeyRound, title: "Entitlement-aware", text: "You only ever see apps you actually have access to." },
-  { icon: Users, title: "Managed centrally", text: "Access is granted and revoked from the Admin Console." },
+  { icon: LayoutGrid, title: "One workspace", text: "Your applications in one convenient place." },
+  { icon: ShieldCheck, title: "Single sign-on", text: "Sign in with your Microsoft Entra ID account." },
+  { icon: KeyRound, title: "Application security", text: "Each application enforces its own access permissions." },
+  { icon: Users, title: "Central management", text: "Application access is managed according to each app's security rules." },
 ];
 
 /**
@@ -69,10 +69,8 @@ export function Landing() {
           <div className="mt-6 rounded-md border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 max-w-md">
             <p className="font-semibold">Access not granted</p>
             <p className="mt-1 text-amber-200/80">
-              Your Microsoft account was recognised but you haven't been given
-              access to the Workspace yet. Contact an administrator to be
-              added under <strong>Map User Security Access</strong> in the
-              Admin Console.
+              Your Microsoft account could not complete sign-in. Please verify your Microsoft Entra ID account and try again. 
+               If the problem continues, contact your administrator.
             </p>
           </div>
         ) : authError ? (

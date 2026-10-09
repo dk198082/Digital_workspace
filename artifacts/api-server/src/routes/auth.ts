@@ -1,19 +1,12 @@
 import { Router, type IRouter } from "express";
 import * as oidcClient from "openid-client";
-import { and, eq } from "drizzle-orm";
 import {
   db,
   appUsersTable,
-  usersTable,
-  roleAssignmentsTable,
-  rolesTable,
-  appsTable,
 } from "@workspace/db";
 import { getOidcConfig, getRedirectUri } from "../lib/oidc";
 import { logAudit } from "../lib/audit";
-import {
-  createEmbeddedSsoToken,
-} from "../lib/embedded-sso";
+import { createEmbeddedSsoToken } from "../lib/embedded-sso";
 
 const router: IRouter = Router();
 
@@ -21,12 +14,8 @@ const FRONTEND_URL = process.env["FRONTEND_URL"];
 const ADMIN_CONSOLE_FRONTEND_URL =
   process.env["ADMIN_CONSOLE_FRONTEND_URL"];
 
-  if (!FRONTEND_URL) {
+if (!FRONTEND_URL) {
   throw new Error("FRONTEND_URL is not configured");
-}
-
-if (!ADMIN_CONSOLE_FRONTEND_URL) {
-  throw new Error("ADMIN_CONSOLE_FRONTEND_URL is not configured");
 }
 
 declare module "express-session" {
@@ -43,14 +32,25 @@ declare module "express-session" {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Microsoft Entra ID login
+// -----------------------------------------------------------------------------
+
 router.get("/auth/login", async (req, res, next) => {
   try {
-    const config = await getOidcConfig();
-
     const app =
       req.query.app === "admin-console"
         ? "admin-console"
         : "workspace";
+
+    if (app === "admin-console" && !ADMIN_CONSOLE_FRONTEND_URL) {
+      res
+        .status(500)
+        .send("Admin Console frontend URL is not configured.");
+      return;
+    }
+
+    const config = await getOidcConfig();
 
     req.session.authApp = app;
 
@@ -83,10 +83,15 @@ router.get("/auth/login", async (req, res, next) => {
   }
 });
 
-
+// -----------------------------------------------------------------------------
+// Microsoft Entra ID callback
+//
+// Workspace login requires a valid Entra ID sign-in, not an Admin Console
+// entitlement. Individual applications must continue enforcing their own
+// authorization requirements.
+// -----------------------------------------------------------------------------
 
 router.get("/auth/callback", async (req, res, next) => {
-
   const authApp = req.session.authApp;
 
   const targetFrontend =
@@ -94,31 +99,44 @@ router.get("/auth/callback", async (req, res, next) => {
       ? ADMIN_CONSOLE_FRONTEND_URL
       : FRONTEND_URL;
 
-  try {
+  if (!targetFrontend) {
+    res.status(500).send("Frontend URL is not configured.");
+    return;
+  }
 
+  try {
     const config = await getOidcConfig();
-    const {
-    codeVerifier,
-    oauthState,
-    } = req.session;
+    const { codeVerifier, oauthState } = req.session;
 
     if (!codeVerifier || !oauthState) {
-      // res.redirect("/?auth_error=session_expired");
-      res.redirect(`${targetFrontend}?auth_error=session_expired`);
+      res.redirect(
+        `${targetFrontend}?auth_error=session_expired`,
+      );
       return;
     }
 
     const currentUrl = new URL(
       `${getRedirectUri(req).split("/api/")[0]}${req.originalUrl}`,
     );
-    const tokens = await oidcClient.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedState: oauthState,
-    });
+
+    const tokens = await oidcClient.authorizationCodeGrant(
+      config,
+      currentUrl,
+      {
+        pkceCodeVerifier: codeVerifier,
+        expectedState: oauthState,
+      },
+    );
+
+    // These values are no longer needed after the callback parameters
+    // have been validated and exchanged.
+    delete req.session.codeVerifier;
+    delete req.session.oauthState;
 
     const claims = tokens.claims();
+
     if (!claims?.sub) {
-       res.redirect(`${targetFrontend}?auth_error=no_claims`);
+      res.redirect(`${targetFrontend}?auth_error=no_claims`);
       return;
     }
 
@@ -128,53 +146,33 @@ router.get("/auth/callback", async (req, res, next) => {
     );
     const name = String(claims.name ?? email);
 
-    // Gate login: user must have an active entitlement for the "Admin Console"
-    // app in the managed users / role-assignments system.
-    const [entitled] = await db
-      .select({ userId: usersTable.id })
-      .from(usersTable)
-      .innerJoin(roleAssignmentsTable, eq(roleAssignmentsTable.userId, usersTable.id))
-      .innerJoin(rolesTable, eq(roleAssignmentsTable.roleId, rolesTable.id))
-      .innerJoin(appsTable, eq(rolesTable.appId, appsTable.id))
-      .where(
-        and(
-          eq(usersTable.entraObjectId, entraObjectId),
-          eq(usersTable.status, "active"),
-          eq(rolesTable.isEntitlement, true),
-          eq(appsTable.name, "Admin Console"),
-        ),
-      )
-      .limit(1);
-
-    if (!entitled) {
-      req.log.warn(
-        { entraObjectId, email, name },
-        "Authenticated user denied: no Admin Console entitlement",
-      );
-      await logAudit(
-        "ACCESS_DENIED",
-        entraObjectId,
-        `${name} (${email}) denied Admin Console login — no entitlement assigned`,
-        name,
-      );
-      res.redirect(`${targetFrontend}?auth_error=not_authorized`);
-      // res.redirect("/?auth_error=not_authorized");
-      return;
-    }
-
+    // Create or update the local Workspace user.
+    // No Admin Console entitlement is required for Workspace login.
     const [appUser] = await db
       .insert(appUsersTable)
       .values({ entraObjectId, email, name })
       .onConflictDoUpdate({
         target: appUsersTable.entraObjectId,
-        set: { email, name, lastLoginAt: new Date() },
+        set: {
+          email,
+          name,
+          lastLoginAt: new Date(),
+        },
       })
       .returning();
 
-    // Regenerate the session ID on login to prevent session fixation.
+    if (!appUser) {
+      throw new Error("Unable to create or retrieve the Workspace user.");
+    }
+
+    // Regenerate the session ID to prevent session fixation.
     await new Promise<void>((resolve, reject) => {
-      req.session.regenerate((err) => (err ? reject(err) : resolve()));
+      req.session.regenerate((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
+
     req.session.user = {
       id: appUser.id,
       entraObjectId: appUser.entraObjectId,
@@ -182,30 +180,49 @@ router.get("/auth/callback", async (req, res, next) => {
       name: appUser.name,
     };
 
-    
+    // Persist the authenticated session before redirecting.
     await new Promise<void>((resolve, reject) => {
-        req.session.save((err) => {
+      req.session.save((err) => {
         if (err) reject(err);
         else resolve();
-      }); });
-      
-    await logAudit("login", "Session", `${name} (${email}) signed in via Entra ID`, name);
+      });
+    });
+
+    await logAudit(
+      "login",
+      "Session",
+      `${name} (${email}) signed in via Entra ID`,
+      name,
+    );
+
     res.redirect(targetFrontend);
-    
   } catch (err) {
     req.log.error({ err }, "Entra ID callback failed");
-    // res.redirect("/?auth_error=callback_failed");
+
+    if (res.headersSent) {
+      return;
+    }
+
     res.redirect(`${targetFrontend}?auth_error=callback_failed`);
   }
 });
+
+// -----------------------------------------------------------------------------
+// Current authenticated user
+// -----------------------------------------------------------------------------
 
 router.get("/auth/me", (req, res) => {
   if (!req.session.user) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
   res.json(req.session.user);
 });
+
+// -----------------------------------------------------------------------------
+// Embedded SSO handoff
+// -----------------------------------------------------------------------------
 
 router.get("/auth/embedded-handoff", async (req, res, next) => {
   try {
@@ -220,55 +237,55 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
     const returnTo = String(req.query.returnTo ?? "/").trim();
 
     const targetConfigs: Record<
-          string,
-          {
-            audience: string;
-            callbackUrl: string;
-            ssoPath: string;
-          }
-        > = {
-          packing: {
-            audience: "packing-control-board",
-            callbackUrl:
-              process.env.PACKING_CONTROL_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso",
-          },
+      string,
+      {
+        audience: string;
+        callbackUrl: string;
+        ssoPath: string;
+      }
+    > = {
+      packing: {
+        audience: "packing-control-board",
+        callbackUrl:
+          process.env.PACKING_CONTROL_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
 
-          productionPriority: {
-            audience: "production-priority-board",
-            callbackUrl:
-              process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso",
-          },
+      productionPriority: {
+        audience: "production-priority-board",
+        callbackUrl:
+          process.env.PRODUCTION_PRIORITY_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
 
-          productionShopFloor: {
-            audience: "production-shop-floor",
-            callbackUrl:
-              process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso",
-          },
+      productionShopFloor: {
+        audience: "production-shop-floor",
+        callbackUrl:
+          process.env.PRODUCTION_SHOP_FLOOR_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
 
-          fieldService: {
-            audience: "field-service-calendar",
-            callbackUrl:
-              process.env.FIELD_SERVICE_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso",
-          },
+      fieldService: {
+        audience: "field-service-calendar",
+        callbackUrl:
+          process.env.FIELD_SERVICE_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
 
-          proForma: {
-              audience: "pro-forma-service-invoice",
-              callbackUrl:
-                process.env.PROFORMA_SERVICE_FRONTEND_URL?.trim() || "",
-              ssoPath: "/api/auth/embedded-sso-proforma",
-            },
+      proForma: {
+        audience: "pro-forma-service-invoice",
+        callbackUrl:
+          process.env.PROFORMA_SERVICE_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso-proforma",
+      },
 
-          adminConsole: {
-            audience: "admin-console",
-            callbackUrl:
-              process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso",
-          },
-        };
+      adminConsole: {
+        audience: "admin-console",
+        callbackUrl:
+          process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
+    };
 
     const config = targetConfigs[target];
 
@@ -301,24 +318,55 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
   }
 });
 
+// -----------------------------------------------------------------------------
+// POST logout
+// -----------------------------------------------------------------------------
 
 router.post("/auth/logout", async (req, res) => {
   const name = req.session.user?.name;
+
   if (name) {
     try {
-      await logAudit("logout", "Session", `${name} signed out`, name);
+      await logAudit(
+        "logout",
+        "Session",
+        `${name} signed out`,
+        name,
+      );
     } catch (err) {
       req.log.error({ err }, "Failed to write logout audit entry");
     }
   }
-  req.session.destroy(() => {
+
+  req.session.destroy((err) => {
+    if (err) {
+      req.log.error({ err }, "Failed to destroy session");
+      res.status(500).json({ error: "Unable to sign out." });
+      return;
+    }
+
     res.json({ ok: true, loggedOutUser: name ?? null });
   });
 });
 
+// -----------------------------------------------------------------------------
+// GET logout
+// -----------------------------------------------------------------------------
+
 router.get("/auth/logout", (req, res) => {
-  req.session.destroy(() => {
-     res.redirect(ADMIN_CONSOLE_FRONTEND_URL);
+  const targetFrontend =
+    req.session.authApp === "admin-console"
+      ? ADMIN_CONSOLE_FRONTEND_URL
+      : FRONTEND_URL;
+
+  req.session.destroy((err) => {
+    if (err) {
+      req.log.error({ err }, "Failed to destroy session");
+      res.status(500).send("Unable to sign out.");
+      return;
+    }
+
+    res.redirect(targetFrontend || FRONTEND_URL!);
   });
 });
 
