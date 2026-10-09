@@ -256,11 +256,11 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
           },
 
           proForma: {
-            audience: "pro-forma-service-invoice",
-            callbackUrl:
-              process.env.FIELD_SERVICE_FRONTEND_URL?.trim() || "",
-            ssoPath: "/api/auth/embedded-sso-proforma",
-          },
+              audience: "pro-forma-service-invoice",
+              callbackUrl:
+                process.env.PROFORMA_SERVICE_FRONTEND_URL?.trim() || "",
+              ssoPath: "/api/auth/embedded-sso-proforma",
+            },
 
           adminConsole: {
             audience: "admin-console",
