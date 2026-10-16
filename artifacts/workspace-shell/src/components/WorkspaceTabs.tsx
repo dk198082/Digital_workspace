@@ -232,6 +232,9 @@ function AppFrame({
   const isProductionShopFloor =
     app.name === "Production Shop Floor";
 
+  const isCalibration = 
+      app.name === "Calibration";  
+
   const isProductionPriority =
     app.name === "Production Priority Board";
 
@@ -242,11 +245,12 @@ function AppFrame({
     app.name === "Admin Console";
 
   const requiresEmbeddedAuth =
-    isFieldService ||
-    isProductionShopFloor ||
-    isProductionPriority ||
-    isPackingControl ||
-    isAdminConsole;
+  isFieldService ||
+  isProductionShopFloor ||
+  isCalibration ||
+  isProductionPriority ||
+  isPackingControl ||
+  isAdminConsole;
 
   const [suspectedBlocked, setSuspectedBlocked] =
     useState(false);
