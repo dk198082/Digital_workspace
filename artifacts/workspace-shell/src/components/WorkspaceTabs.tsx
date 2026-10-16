@@ -62,6 +62,9 @@ function getEmbeddedSsoStartUrl(
 
     "Pro Forma Service Invoice": 
         "proForma",
+      
+    "Calibration": 
+          "calibration",
 
     "Admin Console": 
         "adminConsole",
@@ -392,6 +395,8 @@ function AppFrame({
         event.origin === PACKING_CONTROL_ORIGIN &&
         messageType ===
           "PACKING_CONTROL_AUTH_COMPLETE";
+
+          
 
       /*
        * Admin Console

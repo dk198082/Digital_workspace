@@ -279,6 +279,13 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
         ssoPath: "/api/auth/embedded-sso-proforma",
       },
 
+      calibration: {
+        audience: "calibration",
+        callbackUrl:
+          process.env.CALIBRATION_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso-calibration",
+      },
+
       adminConsole: {
         audience: "admin-console",
         callbackUrl:
