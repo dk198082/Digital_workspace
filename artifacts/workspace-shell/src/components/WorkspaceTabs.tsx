@@ -91,12 +91,7 @@ function getEmbeddedSsoStartUrl(
     target,
   );
 
-  url.searchParams.set(
-      "returnTo",
-      target === "productionShopFloor"
-        ? "/calibration/"
-        : "/",
-  );
+  url.searchParams.set("returnTo", "/");
 
   return url.toString();
 }
