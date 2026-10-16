@@ -314,10 +314,15 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
     );
 
     callbackUrl.searchParams.set("token", token);
+    
     callbackUrl.searchParams.set(
       "returnTo",
       returnTo.startsWith("/") ? returnTo : "/",
     );
+
+    if (target === "calibration") {
+      callbackUrl.searchParams.set("embedded", "1");
+    }
 
     res.redirect(callbackUrl.toString());
   } catch (error) {
