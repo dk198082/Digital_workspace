@@ -292,6 +292,14 @@ router.get("/auth/embedded-handoff", async (req, res, next) => {
           process.env.ADMIN_CONSOLE_FRONTEND_URL?.trim() || "",
         ssoPath: "/api/auth/embedded-sso",
       },
+
+      // ETO Tracker
+      etoTracker: {
+        audience: "eto-tracker",
+        callbackUrl:
+          process.env.ETO_TRACKER_FRONTEND_URL?.trim() || "",
+        ssoPath: "/api/auth/embedded-sso",
+      },
     };
 
     const config = targetConfigs[target];

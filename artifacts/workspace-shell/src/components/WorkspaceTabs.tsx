@@ -69,6 +69,9 @@ function getEmbeddedSsoStartUrl(
     "Admin Console": 
         "adminConsole",
 
+    "ETO Tracker":
+        "etoTracker",
+
   };
 
   const target =
@@ -239,13 +242,17 @@ function AppFrame({
   const isAdminConsole =
     app.name === "Admin Console";
 
+  const isEtoTracker =
+    app.name === "ETO Tracker";
+
   const requiresEmbeddedAuth =
-  isFieldService ||
-  isProductionShopFloor ||
-  isCalibration ||
-  isProductionPriority ||
-  isPackingControl ||
-  isAdminConsole;
+    isFieldService ||
+    isProductionShopFloor ||
+    isCalibration ||
+    isProductionPriority ||
+    isPackingControl ||
+    isAdminConsole ||
+    isEtoTracker;
 
   const [suspectedBlocked, setSuspectedBlocked] =
     useState(false);
@@ -295,6 +302,11 @@ function AppFrame({
 
   const ADMIN_CONSOLE_ORIGIN =
     isAdminConsole
+      ? new URL(app.launchUrl).origin
+      : null;
+
+  const ETO_TRACKER_ORIGIN =
+    isEtoTracker
       ? new URL(app.launchUrl).origin
       : null;
 
@@ -407,12 +419,22 @@ function AppFrame({
         messageType ===
           "ADMIN_CONSOLE_AUTH_COMPLETE";
 
+      /*
+       * ETO Tracker
+       */
+      const validEtoTracker =
+        isEtoTracker &&
+        ETO_TRACKER_ORIGIN &&
+        event.origin === ETO_TRACKER_ORIGIN &&
+        messageType === "ETO_AUTH_COMPLETE";
+
       if (
         !validFieldService &&
         !validProduction &&
         !validProductionPriority &&
         !validPacking &&
-        !validAdminConsole
+        !validAdminConsole &&
+        !validEtoTracker
       ) {
         return;
       }
@@ -457,6 +479,8 @@ function AppFrame({
     PACKING_CONTROL_ORIGIN,
     isAdminConsole,
     ADMIN_CONSOLE_ORIGIN,
+    isEtoTracker,
+    ETO_TRACKER_ORIGIN,
     requiresEmbeddedAuth,
   ]);
 
