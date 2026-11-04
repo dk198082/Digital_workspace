@@ -445,12 +445,24 @@ function AppFrame({
       );
 
       setEmbeddedAuthReady(true);
-      setLoaded(false);
       setSuspectedBlocked(false);
 
       /*
-       * Force a fresh iframe after authentication.
+       * ETO Tracker:
+       * Authentication is already completed inside
+       * the iframe. Do not reload it, or SSO will restart.
        */
+      if (validEtoTracker) {
+        setLoaded(true);
+        return;
+      }
+
+      /*
+       * Other applications:
+       * Preserve existing iframe reload behavior.
+       */
+      setLoaded(false);
+
       setIframeVersion(
         (version) => version + 1,
       );
