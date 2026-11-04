@@ -69,6 +69,9 @@ function getEmbeddedSsoStartUrl(
     "Admin Console": 
         "adminConsole",
 
+    "ETO":
+       "etoTracker",
+
     "ETO Tracker":
         "etoTracker",
 
