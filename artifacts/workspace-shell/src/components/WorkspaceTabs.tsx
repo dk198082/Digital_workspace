@@ -243,7 +243,9 @@ function AppFrame({
     app.name === "Admin Console";
 
   const isEtoTracker =
-    app.name === "ETO Tracker";
+       ["ETO", "ETO Tracker"].includes(
+       app.name.trim()
+  );
 
   const requiresEmbeddedAuth =
     isFieldService ||
