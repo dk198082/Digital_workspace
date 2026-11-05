@@ -154,7 +154,7 @@ export function Sidebar({
   return (
     <nav
       className={`relative flex h-full shrink-0 flex-col border-r border-white/10 bg-ws-bg transition-all duration-300 ease-in-out ${
-        sidebarCollapsed ? "w-16" : "w-64"
+        sidebarCollapsed ? "w-10" : "w-64"
       }`}
     >
       {/* Brand header and sidebar toggle */}
