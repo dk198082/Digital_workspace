@@ -89,8 +89,9 @@ export function Workspace({ user }: { user: AuthUser }) {
 
   //const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  return (
-    <div className="flex h-[100dvh] bg-ws-bg">
+  
+return (
+    <div className="flex h-[100dvh] w-full min-w-0 overflow-hidden bg-ws-bg">
       {isLoading ? (
         <div className="flex h-full w-64 shrink-0 flex-col border-r border-white/10 bg-ws-bg p-3">
           <div className="h-8 animate-pulse rounded bg-white/5" />
@@ -109,22 +110,24 @@ export function Workspace({ user }: { user: AuthUser }) {
         />
       )}
 
-      {(data?.apps.length ?? 0) === 0 &&
-      !isLoading &&
-      !isError ? (
-        <EmptyState />
-      ) : (
-        <WorkspaceTabs
-          openTabs={openTabs}
-          activeAppId={activeAppId}
-          onActivate={setActiveAppId}
-          onClose={closeTab}
-          onCloseAll={() => {
+      <main className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        {(data?.apps.length ?? 0) === 0 &&
+        !isLoading &&
+        !isError ? (
+          <EmptyState />
+        ) : (
+          <WorkspaceTabs
+            openTabs={openTabs}
+            activeAppId={activeAppId}
+            onActivate={setActiveAppId}
+            onClose={closeTab}
+            onCloseAll={() => {
               setOpenTabs([]);
-            setActiveAppId(null);
-          }}
+              setActiveAppId(null);
+            }}
           />
-      )}
+        )}
+      </main>
     </div>
   );
 }
